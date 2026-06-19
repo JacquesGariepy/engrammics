@@ -1,0 +1,314 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[expansion=false]{microtype}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{hypothesis}{Hypothesis}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\F}{F}
+\newcommand{\norm}[1]{\lVert #1 \rVert}
+\newcommand{\dk}{d_k}
+\newcommand{\dv}{d_v}
+
+\title{\textbf{Distributed Engrammics:\\ Persistent, Transferable Fast Weights for\\ Gradient-Free Skill Transfer Between Agents}}
+
+\author{Jacques Gari\'epy\\[2pt]\small \url{https://github.com/JacquesGariepy}}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+Fast weight programmers (FWPs) treat the fast-weight matrix as an \emph{ephemeral} memory, reset every sequence and private to a single network. We study a variant in which this matrix, denoted $\F$, is instead treated as a \emph{persistent} and \emph{transferable} substrate shared between agents. We define four operations on $\F$ (\emph{inscribe}, \emph{read}, \emph{transfer}, \emph{forget}) together with subspace \emph{governance}, and we formulate six pre-registered, falsifiable hypotheses with explicit decision rules. In a controlled associative-recall regime, evaluated over $60$ seeds with paired-bootstrap $95\%$ confidence intervals and Holm--Bonferroni correction, a low-rank state delta extracted from one agent transfers a skill to another \emph{without any gradient step}: it beats both a no-transfer control and a norm-matched random-engram control by $\approx 88$ accuracy points (each $95\%$ CI excludes zero, $p<0.001$), the recovered skill grows monotonically with the transferred rank, the recipient's pre-existing skill is preserved, a targeted skill can be removed from the fast substrate by subtraction or projection, and a consent subspace gates integration. We further show that transfer requires a \emph{shared key space}: across agents with different encoders the naive transfer collapses to chance, while a linear alignment learned from shared anchors fully restores it. These results establish the algebra in a controlled regime; they do not yet establish procedural or semantic skill transfer at the scale of a language model, which is the principal open test. We provide a single reproducible harness with two backends (a NumPy associative-memory model and a DeltaNet checkpoint via \texttt{flash-linear-attention}) sharing identical hypothesis-testing logic, so that the language-model test is judged by the same criteria.
+\end{abstract}
+
+\section{Introduction}
+
+A weight matrix is a memory, and a network can learn to program it. Schmidhuber's fast-weight memories \cite{schmidhuber1992} replace recurrent storage by a slow network that emits context-dependent changes to the weights of a fast network; Schlag, Irie and Schmidhuber later showed that linear transformers are precisely fast weight programmers \cite{schlag2021}. Across this lineage, from deblurring memories \cite{hinton1987} to attending to the recent past \cite{ba2016} to self-referential weight matrices \cite{irie2022} and modern linear-attention architectures \cite{yang2024gdn}, two assumptions are never questioned: the fast-weight matrix is (i) \emph{ephemeral}, reset at the end of each sequence, and (ii) \emph{intra-network}, internal and private to one model.
+
+This paper studies what happens when both assumptions are lifted. We treat the fast-weight matrix $\F$ as a persistent, mobile object that can be exchanged between agents. The novelty is not ``fast weights,'' which are established, but their combination: \emph{persistence}, \emph{peer-to-peer exchange of engrams}, \emph{algebraic governance}, and \emph{targeted forgetting in the fast substrate}. A society of agents that exchanges engrams (low-rank weight deltas) communicates neither by tokens nor by gradients, but by writing compact memory traces directly into a peer's fast state.
+
+\paragraph{Contributions.}
+(1) We define the engrammics framework and its four operations, and we make explicit the shared key-space assumption on which transfer rests (\S\ref{sec:framework}--\ref{sec:method}). (2) We give a falsifiable experimental protocol with pre-registered hypotheses, negative controls, paired-bootstrap confidence intervals and multiplicity correction (\S\ref{sec:protocol}). (3) We report measured results in a controlled regime: gradient-free transfer separates from both controls and from chance with intervals excluding zero, with a rank dose-response, non-interference, targeted forgetting, governance, and recovery under encoder mismatch via learned alignment (\S\ref{sec:results}). (4) We position the approach against federated learning, distillation, and model merging, reframe ``the right to be forgotten'' as a verifiable operation in the fast substrate rather than complete erasure, and provide a threat model (\S\ref{sec:discussion}--\ref{sec:governance}). (5) We release a single reproducible harness whose two backends are judged by identical criteria, so the language-model test is held to the same standard as the controlled one.
+
+\section{Background and related work}
+
+\paragraph{Fast weights and fast weight programmers.}
+A linear-attention layer maintains a state $S$ that is written by outer products of keys and values and read by queries \cite{schlag2021,ba2016}. The delta rule \cite{schlag2021} replaces the pure Hebbian write by an error-correcting one, which reduces interference; this is the native update of DeltaNet. Gated Delta Networks add an adaptive erase gate over the delta rule \cite{yang2024gdn}, and RWKV-7 generalizes the delta rule with vector-valued state evolution \cite{peng2025rwkv7}. Self-referential weight matrices let the fast weights modify their own update \cite{irie2022}. In all of these the state is reset per sequence and never leaves the network.
+
+\paragraph{Knowledge transfer between models.}
+Federated learning communicates and averages the \emph{slow} weights of an entire model \cite{mcmahan2017}. Distillation transfers behaviour through outputs. Task arithmetic and model merging add \emph{slow} adapters or task vectors \cite{ilharco2023}, of which LoRA is a common parameterization \cite{hu2021}. Engrammics differs in what circulates: the \emph{fast} weights, as compact, composable, semantically localized traces, added without a gradient step. Associative-memory perspectives on attention \cite{ramsauer2021} are complementary; we use a delta-rule associative memory as the controlled backend. The multi-agent reading draws on classical distributed AI \cite{ferber1999} and stigmergy \cite{grasse1959}.
+
+\section{The engrammics framework}
+\label{sec:framework}
+
+\begin{definition}[Engram]
+An engram is a memory trace written into the fast-weight matrix $\F$ as a sum of outer products. A skill engram comprising $N$ associations has rank at most $N$ and may be truncated to rank $r\le N$.
+\end{definition}
+
+The framework rests on four operations and one admission rule.
+\emph{Inscribe}: a slow controller (the \emph{conatus}) emits keys, values and write strengths, and the delta rule writes them into $\F$.
+\emph{Read}: behaviour is produced by associative readout from $\F$.
+\emph{Transfer}: an agent emits a low-rank delta $\Delta\F$; a peer integrates it additively, $\F \leftarrow \F + \alpha\,\Delta\F$, with no gradient step.
+\emph{Forget}: a targeted trace is removed from $\F$, either by subtracting its engram or by projecting out the subspace it occupies.
+\emph{Govern}: an incoming engram is admitted only within a consented subspace, $\Delta\F \mapsto U U^\top \Delta\F$.
+
+\paragraph{Shared key-space assumption.}
+Transfer is meaningful only if the two agents address $\F$ in the same key space, i.e.\ they share the key encoder. This holds by construction when the agents are two instances of the same checkpoint, which is the regime of the language-model test. For genuinely heterogeneous agents it fails, and we study a remedy in \S\ref{sec:hetero}.
+
+\section{Operations and formalism}
+\label{sec:method}
+
+Let keys and queries $k,q\in\R^{\dk}$, values $v\in\R^{\dv}$, and the fast-weight state $S\in\R^{\dk\times\dv}$. The read is
+\begin{equation}
+o \;=\; S^\top q \;\in\;\R^{\dv}.
+\end{equation}
+The delta-rule write, with prediction $\hat v = S^\top k$, correction $c = v-\hat v$, and write strength $\beta$, is
+\begin{equation}
+S \;\leftarrow\; S + \beta\,k\,c^\top
+\;=\; (I-\beta\,k k^\top)\,S + \beta\,k v^\top .
+\label{eq:delta}
+\end{equation}
+We emphasize the operand order: for $S\in\R^{\dk\times\dv}$ the factor $(I-\beta kk^\top)$ acts \emph{on the left} of $S$. (An earlier draft printed $S(I-\beta kk^\top)$, which is ill-typed for this shape; the implementation has always used \eqref{eq:delta}.)
+
+\paragraph{Engram and transfer.}
+Writing a skill from the zero state yields its engram $\Delta\F$. A peer holding state $S_B$ integrates a rank-$r$ truncation,
+\begin{equation}
+S_B \;\leftarrow\; S_B + \alpha\,\mathrm{trunc}_r(\Delta\F),
+\qquad
+\mathrm{trunc}_r(M)=\textstyle\sum_{i=1}^{r}\sigma_i u_i w_i^\top ,
+\end{equation}
+where $\sigma_i u_i w_i^\top$ are the leading singular triplets of $M$. The communication cost is $O(r(\dk+\dv))$ floats, which improves on transmitting raw demonstrations only when the skill is compressible to low rank (\S\ref{sec:results}).
+
+\paragraph{Forgetting.}
+Two variants. Projection (exact, requires the keys $K\in\R^{N\times\dk}$):
+\begin{equation}
+S \;\leftarrow\; S - K^\top (K K^\top)^{-1} K\,S ,
+\label{eq:forget-proj}
+\end{equation}
+which nulls the readout for any query in the span of $K$ while preserving the orthogonal complement. Subtraction (general, key-free): $S \leftarrow S - \Delta\F$, used when the keys are not exposed, as in a language-model state.
+
+\paragraph{Governance.}
+With an orthonormal basis $U\in\R^{\dk\times m}$ of the consented subspace, an incoming engram is admitted only as $U U^\top\Delta\F$. Consent thus bounds the write \emph{subspace}, though not the \emph{content} within it (\S\ref{sec:governance}).
+
+\paragraph{The conatus.}
+The slow controller maps content to keys and write strengths. In the controlled backend it is a linear key encoder trained to inscribe non-interfering engrams (near-orthonormal keys); in the language-model backend the pretrained model itself plays this role, since reading in-context demonstrations writes the engram automatically.
+
+\section{Experimental protocol}
+\label{sec:protocol}
+
+\paragraph{Two backends, one judge.}
+The \emph{toy} backend is a delta-rule associative memory ($\dk=64$, gaussian content), used to validate the harness and to prove the algebra. The \emph{LM} backend is a pure DeltaNet checkpoint via \texttt{flash-linear-attention}, whose per-layer recurrent state is $\F$; the skill is an in-context injective letter$\to$digit map, and a query is answered by greedy decoding from an injected state. Both backends expose the same operations and are evaluated by the same statistics and verdict function.
+
+\paragraph{Conditions.}
+Per seed we draw two skills $X,Y$. We measure: the clean-write ceiling (write $X$ alone, read $X$); a no-transfer control (recipient holds only $Y$, read $X$); a norm-matched random-engram control; transfer at ranks $r\in\{1,2,4,8\}$ and at full rank; the recipient's recall of $Y$ before and after integrating $X$; a joint state that reads $X$ then $Y$ and the result of subtracting $X$'s engram from it; and integration of $X$ through the admitted versus the denied subspace.
+
+\paragraph{Statistics.}
+Each condition is summarized by its mean and a $95\%$ percentile-bootstrap confidence interval over seeds. Hypotheses are tested by paired bootstrap of the relevant difference; the primary one-sided tests are corrected for multiplicity by Holm--Bonferroni at $\alpha=0.05$. Decoding is greedy and all seeds are fixed, so runs are reproducible up to CUDA kernel nondeterminism.
+
+\paragraph{Pre-registered hypotheses and decision rules.}
+\begin{hypothesis}[Specific transfer, primary]
+Full-rank transfer beats both the no-transfer and the random-engram controls. \emph{Rule}: the $95\%$ CI lower bound of each paired difference exceeds $0$, and the transfer mean exceeds chance by at least $15$ points. If the clean-write ceiling is itself at chance, the task is unlearnable and the outcome is \textsc{inconclusive}, not a refutation.
+\end{hypothesis}
+\begin{hypothesis}[Non-interference]
+Integrating $X$ does not destroy $Y$. \emph{Rule (equivalence)}: the CI lower bound of (recall$_Y$ after $-$ before) exceeds $-0.10$.
+\end{hypothesis}
+\begin{hypothesis}[Targeted forgetting]
+Subtracting $X$'s engram drops recall$_X$ while preserving recall$_Y$. \emph{Rule}: CI lower bound of the drop $>0$ and of the $Y$-preservation $>-0.10$.
+\end{hypothesis}
+\begin{hypothesis}[Governance]
+The admitted subspace recovers $X$; the denied subspace does not. \emph{Rule}: CI lower bound of (admit $-$ deny) $>0$.
+\end{hypothesis}
+\begin{hypothesis}[Rank dose-response]
+Recall$_X$ increases with the transferred rank. \emph{Rule}: CI lower bound of (rank $8$ $-$ rank $1$) $>0$ and the per-rank means are non-decreasing.
+\end{hypothesis}
+\begin{hypothesis}[Shared key space]
+Transfer requires a shared key encoder; under mismatch a learned linear alignment restores it. \emph{Rule}: naive cross-encoder transfer at chance, aligned transfer significantly above it.
+\end{hypothesis}
+
+\section{Results}
+\label{sec:results}
+
+We first report the controlled regime, where the algebra can be established with full statistical rigour, and then describe the identical language-model protocol that remains to be run.
+
+\subsection{Controlled regime: condition means}
+
+Table~\ref{tab:means} reports condition means over $60$ seeds with $95\%$ bootstrap CIs. Both negative controls sit at chance: the no-transfer control and the norm-matched random engram are indistinguishable from the $12.5\%$ chance level, which establishes that any transfer effect is specific rather than an artifact of adding mass to the state.
+
+\begin{table}[h]
+\centering
+\caption{Condition means with $95\%$ bootstrap CIs, controlled regime, $60$ seeds. Chance $=12.5\%$.}
+\label{tab:means}
+\begin{tabular}{lcc}
+\toprule
+Condition & Recall (\%) & $95\%$ CI \\
+\midrule
+Clean-write ceiling & $100.0$ & $[100.0,100.0]$ \\
+No-transfer control & $12.5$ & $[9.8,15.2]$ \\
+Random-engram control & $12.1$ & $[9.0,15.2]$ \\
+\midrule
+Transfer, rank $1$ & $28.7$ & $[26.0,31.7]$ \\
+Transfer, rank $2$ & $55.0$ & $[51.5,58.5]$ \\
+Transfer, rank $4$ & $88.8$ & $[85.8,91.5]$ \\
+Transfer, rank $8$ & $100.0$ & $[100.0,100.0]$ \\
+Transfer, full rank & $100.0$ & $[100.0,100.0]$ \\
+\midrule
+$Y$ before adding $X$ & $100.0$ & $[100.0,100.0]$ \\
+$Y$ after adding $X$ & $100.0$ & $[100.0,100.0]$ \\
+Joint state, read $X$ & $100.0$ & $[100.0,100.0]$ \\
+Joint state, read $Y$ & $100.0$ & $[100.0,100.0]$ \\
+After forgetting $X$, read $X$ & $0.2$ & $[0.0,0.6]$ \\
+After forgetting $X$, read $Y$ & $100.0$ & $[100.0,100.0]$ \\
+\midrule
+Admitted subspace, read $X$ & $100.0$ & $[100.0,100.0]$ \\
+Denied subspace, read $X$ & $12.5$ & $[9.8,15.2]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hypothesis tests}
+
+Table~\ref{tab:tests} reports the pre-registered tests. The primary hypothesis is supported: full transfer beats the no-transfer control by $+87.5$ points and the random-engram control by $+87.9$ points, each $95\%$ CI excluding zero with $p<0.001$ surviving Holm correction. Recall grows monotonically with rank (H5), the recipient's $Y$ is preserved (H2), forgetting drives recall$_X$ to floor while $Y$ is retained (H3), and the consented subspace gates integration (H4).
+
+\begin{table}[h]
+\centering
+\caption{Pre-registered hypothesis tests, paired bootstrap, $95\%$ CI, Holm-corrected primary tests. $\Delta$ in accuracy points.}
+\label{tab:tests}
+\begin{tabular}{llccl}
+\toprule
+ & Test & $\Delta$ & $95\%$ CI & Verdict \\
+\midrule
+H1a & full $>$ no-transfer & $+87.5$ & $[84.8,90.2]$ & \textsc{supported} \\
+H1b & full $>$ random & $+87.9$ & $[84.8,90.8]$ & \textsc{supported} \\
+H4 & admit $>$ deny & $+87.5$ & $[84.8,90.2]$ & \textsc{supported} \\
+H5 & rank $8 >$ rank $1$ & $+71.2$ & $[68.3,74.0]$ & \textsc{supported} \\
+H2 & $Y$ after $-$ before & $+0.0$ & $[0.0,0.0]$ & \textsc{supported} \\
+H3 & forget: drop on $X$ & $+99.8$ & $[99.4,100.0]$ & \textsc{supported} \\
+H3 & forget: keep $Y$ & $+0.0$ & $[0.0,0.0]$ & \textsc{supported} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Capacity and the conatus}
+
+The sharpness of transfer and forgetting is governed by the ratio of capacity to load. Training the conatus to inscribe non-interfering engrams raises recall as the number of stored associations grows (Table~\ref{tab:capacity}), from $84.6\%$ to $97.2\%$ at $32$ associations.
+
+\begin{table}[h]
+\centering
+\caption{Mean recall versus number of stored associations $N$, before and after training the conatus (associative-memory backend, $120$ skills per cell).}
+\label{tab:capacity}
+\begin{tabular}{lcc}
+\toprule
+$N$ & Untrained (\%) & Trained (\%) \\
+\midrule
+$8$  & $99.7$ & $100.0$ \\
+$16$ & $97.6$ & $99.9$ \\
+$24$ & $92.1$ & $99.1$ \\
+$32$ & $84.6$ & $97.2$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Heterogeneous key spaces and alignment}
+\label{sec:hetero}
+
+Transfer presupposes a shared key encoder. Table~\ref{tab:hetero} confirms the failure mode and its remedy: when two agents use different encoders, naive transfer collapses to chance ($12.5\% \pm 14.3$), because the received delta is addressed in the wrong space; a linear alignment learned from $128$ shared anchors fully restores it to the shared-encoder upper bound.
+
+\begin{table}[h]
+\centering
+\caption{Cross-agent transfer under encoder mismatch, $20$ seeds (mean $\pm$ s.d.).}
+\label{tab:hetero}
+\begin{tabular}{lc}
+\toprule
+Setting & Recall of transferred skill (\%) \\
+\midrule
+Shared encoder (upper bound) & $100.0 \pm 0.0$ \\
+Different encoders, naive transfer & $12.5 \pm 14.3$ \\
+Different encoders, learned alignment & $100.0 \pm 0.0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Sensitivity}
+
+\paragraph{Integration factor.}
+At rank $4$, recall of the transferred skill rises with the integration factor $\alpha$, from $65.6\% \pm 17.6$ at $\alpha=0.25$ to $90.0\% \pm 9.4$ at $\alpha=1.0$ and $91.9\% \pm 8.2$ at $\alpha\ge 1.5$, while the recipient's pre-existing skill is preserved at $100\%$ throughout.
+
+\paragraph{Subspace overlap.}
+Forgetting by projection preserves the other skill at $100\%$ across partial key-subspace overlaps and collapses only when the subspaces nearly coincide ($15.6\% \pm 13.6$ at full overlap). Clean forgetting is therefore conditioned on the engrams occupying distinct subspaces.
+
+\paragraph{Noise on the transmitted engram.}
+Recall is robust to gaussian corruption of the transmitted rank-$8$ engram up to $\sigma=0.4$ ($100\%$). Random noise is thus tolerated; the relevant threat is structured adversarial writing rather than noise (\S\ref{sec:governance}).
+
+\subsection{Language-model protocol}
+
+The same harness instantiates the LM backend: the per-layer recurrent state of a pure DeltaNet checkpoint is $\F$, an engram is the state delta from reading the in-context demonstrations, and the operations (low-rank truncation, additive integration, subtraction-based forgetting, subspace projection) act per head. The identical hypotheses and verdict function apply, so the LM run yields a verdict on the same standard as Table~\ref{tab:tests}. We report this protocol as the principal open test; running it on a single modern GPU is the decisive experiment.
+
+\section{Discussion}
+\label{sec:discussion}
+
+\paragraph{What is novel.}
+The combination, not the substrate. Federated learning moves slow weights, distillation moves outputs, task arithmetic moves slow adapters; engrammics moves fast weights as compact, composable, locally meaningful traces, integrated without a gradient step, with linear-algebraic governance and forgetting. The controlled results establish that this algebra behaves as claimed; the open question is whether it survives at language-model scale.
+
+\paragraph{Cost is conditional.}
+The low-rank cost $O(r(\dk+\dv))$ improves on transmitting raw demonstrations only when the skill is compressible. In our setting a rank-$4$ engram ($448$ floats) recovers the skill at $88.8\%$ and is cheaper than raw replay ($768$ floats), whereas a full rank-$8$ engram ($896$ floats) is not. The correct claim is useful compression for low-rank skills, not unconditional sub-linearity.
+
+\section{Governance and security}
+\label{sec:governance}
+
+\paragraph{Forgetting is verifiable, not complete.}
+Removing a trace from $\F$ by projection \eqref{eq:forget-proj} or subtraction is auditable and, in the controlled regime, drives the target recall to floor while preserving others. But this is a guarantee \emph{in the fast substrate only}: it does not certify the absence of the information from slow weights, caches, logs, outputs or correlates. Mapped onto data-protection regimes, this is a partial, verifiable erasure of the fast trace, not legal conformance.
+
+\paragraph{Consent bounds the subspace, not the content.}
+Governance admits an engram only within $U$; a hostile but in-subspace write still passes. Hardening therefore requires signatures, write quotas and anomaly detection on $\Delta\F$, beyond the subspace projection.
+
+\paragraph{Threat model.}
+Engram poisoning (a peer emits a corrupted delta; random noise is tolerated up to moderate $\sigma$, but structured adversarial writes are untested), state saturation (mass writes beyond capacity induce interference and implicit forgetting), in-subspace malicious writes, and key collisions (skills sharing key directions interfere and forget jointly).
+
+\section{An interpretive note}
+
+The slow/fast split admits a Spinozan reading: $\F$ as the body's dispositional state, the affections of the body modified by encounters, and the conatus as the persistent effort that governs inscription; associative memory by outer products is prefigured in the propositions on the linkage of simultaneous affections \cite{spinoza1677}. This framing motivated the design and is required by none of the results.
+
+\section{Limitations}
+
+The reported results are controlled (gaussian content, low load, artificial skills) and establish an algebraic property, not a real procedural or semantic skill. Clean forgetting is conditioned on subspace disjointness; transfer is conditioned on a shared key space, with heterogeneity requiring alignment and anchors. Compression is useful only for low-rank skills. Robustness to random noise is shown; adversarial robustness is not. The language-model-scale test, the decisive one, is specified and tooled but not yet run.
+
+\section{Conclusion}
+
+Treating fast weights as a persistent, transferable substrate makes gradient-free skill transfer, targeted forgetting and subspace governance realizable and measurable in a controlled regime, under an explicit shared key-space assumption, with effects that separate from strong baselines at $95\%$ confidence. The next and decisive step is to show that these properties survive in the fast state of a linear-attention language model, using the identical harness and criteria.
+
+\section*{Reproducibility statement}
+
+All results were produced by a single harness with two backends sharing identical statistics and verdict logic. A one-command launcher prepares the environment, validates the harness and the algebra on the associative-memory backend (a hard gate), and then runs the same pre-registered protocol on a DeltaNet checkpoint. Tables~\ref{tab:means}--\ref{tab:tests} were generated by the toy backend over $60$ seeds; Tables~\ref{tab:capacity}--\ref{tab:hetero} and the sensitivity analyses over $20$ seeds. Decoding is greedy and seeds are fixed.
+
+\begin{thebibliography}{99}
+\bibitem{schmidhuber1992} J.~Schmidhuber. Learning to control fast-weight memories: an alternative to dynamic recurrent networks. \emph{Neural Computation}, 4(1):131--139, 1992.
+\bibitem{hinton1987} G.~E.~Hinton and D.~C.~Plaut. Using fast weights to deblur old memories. In \emph{Proc.\ Cognitive Science Society}, 177--186, 1987.
+\bibitem{ba2016} J.~Ba, G.~E.~Hinton, V.~Mnih, J.~Z.~Leibo, and C.~Ionescu. Using fast weights to attend to the recent past. In \emph{NeurIPS}, 2016.
+\bibitem{schlag2021} I.~Schlag, K.~Irie, and J.~Schmidhuber. Linear transformers are secretly fast weight programmers. In \emph{ICML}, PMLR 139:9355--9366, 2021.
+\bibitem{irie2022} K.~Irie and J.~Schmidhuber. A modern self-referential weight matrix that learns to modify itself. arXiv:2202.05780, 2022.
+\bibitem{yang2024gdn} S.~Yang et al. Gated delta networks: improving Mamba2 with the delta rule. arXiv:2412.06464, 2024.$^{\dagger}$
+\bibitem{peng2025rwkv7} B.~Peng et al. RWKV-7 ``Goose'' with expressive dynamic state evolution. 2025.$^{\dagger}$
+\bibitem{mcmahan2017} H.~B.~McMahan, E.~Moore, D.~Ramage, S.~Hampson, and B.~Ag\"uera y Arcas. Communication-efficient learning of deep networks from decentralized data. In \emph{AISTATS}, 2017.
+\bibitem{ilharco2023} G.~Ilharco, M.~Ribeiro, M.~Wortsman, S.~Gururangan, L.~Schmidt, H.~Hajishirzi, and A.~Farhadi. Editing models with task arithmetic. In \emph{ICLR}, 2023.
+\bibitem{hu2021} E.~Hu, Y.~Shen, P.~Wallis, Z.~Allen-Zhu, Y.~Li, S.~Wang, L.~Wang, and W.~Chen. LoRA: low-rank adaptation of large language models. arXiv:2106.09685, 2021.
+\bibitem{ramsauer2021} H.~Ramsauer et al. Hopfield networks is all you need. In \emph{ICLR}, 2021.
+\bibitem{ferber1999} J.~Ferber. \emph{Multi-Agent Systems: An Introduction to Distributed Artificial Intelligence}. Addison-Wesley, 1999.
+\bibitem{grasse1959} P.-P.~Grass\'e. La reconstruction du nid et les coordinations interindividuelles. \emph{Insectes Sociaux}, 6:41--80, 1959.
+\bibitem{spinoza1677} B.~Spinoza. \emph{Ethica, Part II}. 1677.
+\end{thebibliography}
+
+\noindent\footnotesize $^{\dagger}$ arXiv identifiers and author lists for \cite{yang2024gdn,peng2025rwkv7} and the \texttt{flash-linear-attention} software should be verified against the published versions before submission.
+
+\end{document}
