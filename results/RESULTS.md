@@ -3,7 +3,24 @@
 Exécuté le 2026-06-19/20.
 
 - **STAGE A (toy, NumPy, CPU)** : Linux, Python 3.10.12 / 3.12, NumPy 2.x.
-- **STAGE B (lm, DeltaNet)** : WSL2 Ubuntu, Python 3.12, PyTorch 2.12 (CUDA 13), flash-linear-attention 0.5.1, transformers 5.12.1, GPU NVIDIA RTX 3090 (24 Go). Checkpoint **`fla-hub/delta_net-1.3B-100B`** (DeltaNet pur : 24 couches, 16 têtes, dim de tête 128, état récurrent par couche `[1,16,128,128]`).
+- **STAGE B (lm, DeltaNet)** : WSL2 Ubuntu, Python 3.12, PyTorch 2.12.1+cu130, flash-linear-attention 0.5.1, transformers 5.12.1, tokenizers 0.22.2, GPU NVIDIA RTX 3090 (24 Go). Checkpoint **`fla-hub/delta_net-1.3B-100B`** (DeltaNet pur : 24 couches, 16 têtes, dim de tête 128, état récurrent par couche `[1,16,128,128]`) et **`fla-hub/delta_net-2.7B-100B`** (32 couches, 20 têtes).
+
+### Provenance (pour audit)
+
+```
+# STAGE A (toy)
+python src/engrammics_science.py --backend toy --seeds 60 --quiet
+
+# STAGE B (LM), reps=3 par défaut, base_seed=0, décodage glouton
+HF_HUB_OFFLINE=1 TOKENIZERS_PARALLELISM=false \
+  python src/engrammics_science.py --backend lm \
+  --model fla-hub/delta_net-1.3B-100B --seeds 30
+HF_HUB_OFFLINE=1 TOKENIZERS_PARALLELISM=false \
+  python src/engrammics_science.py --backend lm \
+  --model fla-hub/delta_net-2.7B-100B --seeds 20
+```
+
+Graines : `base_seed=0` ; compétence X = `skill(base_seed+10000+i)`, Y = `skill(base_seed+20000+i)`, i sur 0..seeds-1. Reproductible jusqu'au non-déterminisme des noyaux CUDA (le contrôle random est désormais seedé déterministiquement). Code : working tree (non committé) — `git diff` couvre `src/engrammics_science.py`, `doc/engrammics_arxiv.tex`. Les logs bruts complets (30/30 et 20/20, moyennes + tests) sont dans `results/`.
 
 ## Ce qui a été lancé
 
@@ -67,7 +84,26 @@ Tests d'hypothèses (bootstrap apparié, IC 95 %, primaires Holm) :
 - **H2 (non-interférence) : NON soutenue.** Superposer X dégrade Y (100 %→74 %) : crosstalk dû aux clés non orthogonales.
 - **H3 (oubli ciblé) : chute oui, conservation de Y non.** La soustraction efface X (50,7→2,0) mais détruit Y (92,7→21,3), car écrire Y sur un état contenant déjà X intrique les deux (non-linéarité de l'ordre d'écriture de la delta rule — mise en garde déjà présente dans le manuscrit, ici **confirmée empiriquement**).
 - **H4 (gouvernance) : SUPPORTED** avec la définition faithful (vraies clés capturées). Admettre l'engramme via le sous-espace des clés autorisées récupère X à **69,3 %** (≈ transfert plein), le complément orthogonal le bloque à **7,3 %** (hasard) ; Δ +62,0. L'ancien estimateur par SVD de l'engramme inversait le test (admit < deny) car 5 directions singulières de l'état ne coïncident pas avec le sous-espace de clés de la compétence. **Choisir la définition par vraies clés répare la gouvernance.**
-- **Précondition de disjonction** (script `diag_disjoint.py`, 16 graines) : H2 et H3-keepY échouent parce que X et Y partagent des directions de clés. Avec des **symboles disjoints**, la non-interférence se rétablit (dY −0,16 → −0,03) ; l'oubli retire X proprement (dropX par projection +0,97 vs +0,52) mais garder Y reste limité (−0,53) par les séparateurs partagés ('=', ';'). Les deux échecs sont donc imputables au recouvrement de clés, pas au mécanisme de transfert.
+- **Précondition de disjonction — 3 niveaux** (`diag_disjoint2.py`, 16 graines) :
+  | Régime | H2 dY | dropX | keepY |
+  |---|---|---|---|
+  | OVERLAP (symboles+sép. partagés) | −0,20 | +0,56 | −0,61 |
+  | SYMBOLS (symboles disjoints) | **+0,00** | +0,98 | −0,56 |
+  | FULL (symboles+sép. disjoints) | **+0,00** | **+1,00** | **−0,30** |
+
+  La non-interférence (H2) **s'annule dès que les symboles sont disjoints** (dY −0,20 → 0,00), même séparateurs partagés → H2 entièrement expliqué par le recouvrement de clés de symboles. L'oubli devient quasi-chirurgical seulement en FULL (dropX +1,00, keepY −0,30 vs −0,61). Le résidu −0,30 est honnête : le format partagé couple encore légèrement via le traitement positionnel. **Dose-réponse avec point final propre pour l'interférence** : les deux dégradations suivent le recouvrement de clés, pas le mécanisme de transfert.
+
+### Compétence vs dictionnaire (le verrou central)
+
+La tâche de rappel transfère une **table mémorisée** (toutes les clés interrogées ont été montrées). Test direct du caractère « compétence » : l'engramme agit-il sur des entrées **jamais montrées** ?
+
+- **Règle symbolique (`diag_skill.py`)** : le modèle de base **ne généralise PAS** une règle nouvelle. Décalage César f(x)=x+k sur lettres held-out : k≥2 au hasard (0,00–0,15) ; seul k=1 (successeur) « marche » mais c'est un **prior** (le contrôle mauvaise-règle donne 0,30–0,40). Répéter la table **baisse** la généralisation (successeur 0,50 à reps=1 → 0,12 à reps=3) → reps fait **mémoriser**, pas inférer. ⇒ le transfert de rappel est bien un dictionnaire ; tester le transfert de règle exige un modèle capable d'apprendre des règles in-context.
+- **Comportement généralisant (`diag_style_transfer.py`, 40 graines)** : un **style de sortie contraint** (« toujours répondre c ») s'applique par construction à toute clé. Sur clés **held-out** : plafond 1,000 ; no-transfer 0,000 ; random 0,003 ; **transfert plein 0,353 [0,234, 0,475]**. full − no-transfer = **+0,353 p<0,0001** ; full − random = **+0,350 p<0,0001**. ⇒ transfert d'un **comportement** vers des entrées jamais montrées — catégoriquement pas un dictionnaire — borné par l'interférence H2. Première instance de transfert de **capacité** (vs mémoire) sans gradient sur un vrai LM linéaire.
+
+### Contrôles structurés & ablation reps
+
+- **Contrôles structurés (`diag_controls.py`, 30 graines)** — plus exigeants que le random norm-matched : transfert réel **0,740** ; **shuffled-values** (mêmes clés, valeurs permutées) **0,200** ; **wrong-skill** (compétence sans rapport) **0,053**. full − shuffled = **+0,540 [0,473, 0,607] p<0,0001** ; full − wrong = **+0,687 p<0,0001**. ⇒ l'effet est spécifique au **contenu** de l'engramme, pas à sa structure/spectre/norme. (Le shuffled est au-dessus du hasard : les bonnes clés adressent bien l'état.)
+- **Ablation reps (`--reps 1/2/3`, 15 graines chacune)** : reps=1 → clean **30,7 %**, full 12,0 % (H1a +2,7, p=0,12, **INCONCLUSIVE** — engramme trop faible) ; reps=2 → clean **100 %**, full **70,7 %** (SUPPORTED) ; reps=3 → clean 100 %, full **68,0 %** (SUPPORTED). ⇒ **reps≥2 sature** : pas un artefact de « prompt rehearsal » propre à reps=3.
 
 ### Confirmation sur DeltaNet-2.7B (20 graines)
 

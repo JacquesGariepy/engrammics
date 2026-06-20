@@ -1,0 +1,6 @@
+model: /home/jac/models/delta_net-1.3B-100B  structured controls  reps=3 pairs=5 seeds=30 (chance~0.1)
+  full                       0.740  [0.687, 0.793]
+  shuffled                   0.200  [0.133, 0.273]
+  wrong                      0.053  [0.020, 0.093]
+  full - shuffled-values   d=0.540 [0.473, 0.607] p=0.0000
+  full - wrong-skill       d=0.687 [0.627, 0.747] p=0.0000
