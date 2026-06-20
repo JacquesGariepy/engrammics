@@ -1,0 +1,57 @@
+### DeltaNet-1.3B ###
+model: /home/jac/models/delta_net-1.3B-100B   (chance ~ 1/26 = 0.038)
+
+# Caesar shift, held-out generalization. cols: held-out acc | wrong-rule acc
+  sep='>' reps=1 k=1 :  held=0.50  wrong=0.30
+  sep='>' reps=1 k=2 :  held=0.15  wrong=0.08
+  sep='>' reps=1 k=3 :  held=0.10  wrong=0.02
+  sep='>' reps=1 k=5 :  held=0.07  wrong=0.05
+  sep='>' reps=3 k=1 :  held=0.12  wrong=0.05
+  sep='>' reps=3 k=2 :  held=0.00  wrong=0.07
+  sep='>' reps=3 k=3 :  held=0.02  wrong=0.03
+  sep='>' reps=3 k=5 :  held=0.00  wrong=0.08
+  sep='>' reps=6 k=1 :  held=0.03  wrong=0.03
+  sep='>' reps=6 k=2 :  held=0.00  wrong=0.07
+  sep='>' reps=6 k=3 :  held=0.02  wrong=0.05
+  sep='>' reps=6 k=5 :  held=0.00  wrong=0.07
+  sep='=' reps=1 k=1 :  held=0.73  wrong=0.40
+  sep='=' reps=1 k=2 :  held=0.13  wrong=0.08
+  sep='=' reps=1 k=3 :  held=0.07  wrong=0.02
+  sep='=' reps=1 k=5 :  held=0.07  wrong=0.03
+  sep='=' reps=3 k=1 :  held=0.08  wrong=0.12
+  sep='=' reps=3 k=2 :  held=0.00  wrong=0.07
+  sep='=' reps=3 k=3 :  held=0.05  wrong=0.02
+  sep='=' reps=3 k=5 :  held=0.00  wrong=0.02
+  sep='=' reps=6 k=1 :  held=0.03  wrong=0.08
+  sep='=' reps=6 k=2 :  held=0.00  wrong=0.07
+  sep='=' reps=6 k=3 :  held=0.05  wrong=0.02
+  sep='=' reps=6 k=5 :  held=0.00  wrong=0.02
+
+### DeltaNet-2.7B ###
+model: /home/jac/models/delta_net-2.7B-100B   (chance ~ 1/26 = 0.038)
+
+# Caesar shift, held-out generalization. cols: held-out acc | wrong-rule acc
+  sep='>' reps=1 k=1 :  held=0.73  wrong=0.35
+  sep='>' reps=1 k=2 :  held=0.12  wrong=0.03
+  sep='>' reps=1 k=3 :  held=0.08  wrong=0.03
+  sep='>' reps=1 k=5 :  held=0.03  wrong=0.02
+  sep='>' reps=3 k=1 :  held=0.58  wrong=0.22
+  sep='>' reps=3 k=2 :  held=0.07  wrong=0.07
+  sep='>' reps=3 k=3 :  held=0.07  wrong=0.07
+  sep='>' reps=3 k=5 :  held=0.03  wrong=0.10
+  sep='>' reps=6 k=1 :  held=0.40  wrong=0.17
+  sep='>' reps=6 k=2 :  held=0.05  wrong=0.07
+  sep='>' reps=6 k=3 :  held=0.05  wrong=0.03
+  sep='>' reps=6 k=5 :  held=0.03  wrong=0.07
+  sep='=' reps=1 k=1 :  held=0.50  wrong=0.22
+  sep='=' reps=1 k=2 :  held=0.03  wrong=0.05
+  sep='=' reps=1 k=3 :  held=0.07  wrong=0.07
+  sep='=' reps=1 k=5 :  held=0.05  wrong=0.02
+  sep='=' reps=3 k=1 :  held=0.37  wrong=0.08
+  sep='=' reps=3 k=2 :  held=0.03  wrong=0.07
+  sep='=' reps=3 k=3 :  held=0.03  wrong=0.03
+  sep='=' reps=3 k=5 :  held=0.02  wrong=0.02
+  sep='=' reps=6 k=1 :  held=0.15  wrong=0.08
+  sep='=' reps=6 k=2 :  held=0.03  wrong=0.07
+  sep='=' reps=6 k=3 :  held=0.03  wrong=0.03
+  sep='=' reps=6 k=5 :  held=0.03  wrong=0.02

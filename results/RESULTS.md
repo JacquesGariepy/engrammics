@@ -93,12 +93,28 @@ Tests d'hypothèses (bootstrap apparié, IC 95 %, primaires Holm) :
 
   La non-interférence (H2) **s'annule dès que les symboles sont disjoints** (dY −0,20 → 0,00), même séparateurs partagés → H2 entièrement expliqué par le recouvrement de clés de symboles. L'oubli devient quasi-chirurgical seulement en FULL (dropX +1,00, keepY −0,30 vs −0,61). Le résidu −0,30 est honnête : le format partagé couple encore légèrement via le traitement positionnel. **Dose-réponse avec point final propre pour l'interférence** : les deux dégradations suivent le recouvrement de clés, pas le mécanisme de transfert.
 
-### Compétence vs dictionnaire (le verrou central)
+### Compétence vs dictionnaire — le verrou central, FRANCHI
 
-La tâche de rappel transfère une **table mémorisée** (toutes les clés interrogées ont été montrées). Test direct du caractère « compétence » : l'engramme agit-il sur des entrées **jamais montrées** ?
+La tâche de rappel transfère une **table mémorisée**. Test direct du caractère « compétence » : l'engramme agit-il sur des entrées **jamais montrées** (held-out) ?
 
-- **Règle symbolique (`diag_skill.py`)** : le modèle de base **ne généralise PAS** une règle nouvelle. Décalage César f(x)=x+k sur lettres held-out : k≥2 au hasard (0,00–0,15) ; seul k=1 (successeur) « marche » mais c'est un **prior** (le contrôle mauvaise-règle donne 0,30–0,40). Répéter la table **baisse** la généralisation (successeur 0,50 à reps=1 → 0,12 à reps=3) → reps fait **mémoriser**, pas inférer. ⇒ le transfert de rappel est bien un dictionnaire ; tester le transfert de règle exige un modèle capable d'apprendre des règles in-context.
-- **Comportement généralisant (`diag_style_transfer.py`, 40 graines)** : un **style de sortie contraint** (« toujours répondre c ») s'applique par construction à toute clé. Sur clés **held-out** : plafond 1,000 ; no-transfer 0,000 ; random 0,003 ; **transfert plein 0,353 [0,234, 0,475]**. full − no-transfer = **+0,353 p<0,0001** ; full − random = **+0,350 p<0,0001**. ⇒ transfert d'un **comportement** vers des entrées jamais montrées — catégoriquement pas un dictionnaire — borné par l'interférence H2. Première instance de transfert de **capacité** (vs mémoire) sans gradient sur un vrai LM linéaire.
+- **Règle symbolique arbitraire (`diag_skill.py`, 1.3B + 2.7B)** : les modèles **ne généralisent PAS** une règle nouvelle. César f(x)=x+k sur held-out : k≥2 au hasard aux deux tailles ; seul k=1 (successeur) « marche » mais c'est un **prior** (contrôle mauvaise-règle 0,30–0,40). Répéter la table **baisse** la généralisation → mémorisation, pas induction. ⇒ limite du **modèle**, pas du mécanisme : une règle arbitraire ne peut être transférée car le modèle ne sait pas l'apprendre in-context.
+
+- **Règle de concept connue — transfert RÉUSSI (`diag_rule_transfer.py`)** : classification **voyelle/consonne** (assignation aléatoire voyelle→a, consonne→b). Les deux modèles l'appliquent à des lettres held-out in-context (0,73–0,79 vs wrong-label 0,21–0,27). On écrit l'engramme de la règle, on l'injecte dans un receveur, on score sur lettres **jamais montrées** :
+
+  | Condition (held-out) | 1.3B (35 graines) | 2.7B (26 graines) |
+  |---|---|---|
+  | engramme seul (plafond règle) | 0,746 | 0,726 |
+  | no-transfer | 0,000 | 0,000 |
+  | random | 0,025 | 0,014 |
+  | **wrong-label** (étiquettes inversées) | 0,007 | 0,096 |
+  | **transfert superposé** | **0,132** | **0,207** |
+  | Δ vs no-transfer | +0,132 **p<10⁻⁴** | +0,207 **p<10⁻⁴** |
+  | Δ vs random | +0,107 **p<10⁻⁴** | +0,192 **p<10⁻⁴** |
+  | Δ vs wrong-label | +0,125 **p<10⁻⁴** | +0,111 **p=0,003** |
+
+  ⇒ Injecté dans un receveur neutre, l'engramme **porte la règle** (classe le held-out à ~0,73–0,75 vs ~0 pour tous les contrôles). Superposé à une compétence existante, il transfère encore la règle au-dessus des **trois contrôles** — dont le **wrong-label** (même structure, assignation opposée) — sur **deux tailles de modèle**. Borné sous le plafond par l'interférence H2, mais statistiquement net et mesuré sur held-out : **ce n'est pas un dictionnaire.** Première démonstration qu'une règle de classification généralisante circule via un engramme à poids rapides, sans gradient, vers une autre instance.
+
+- **Comportement généralisant (`diag_style_transfer.py`, 40 graines)** : un **style de sortie contraint** (« toujours répondre c ») corrobore — held-out : plafond 1,000 ; no-transfer 0,000 ; random 0,003 ; **transfert 0,353** ; Δ +0,353/+0,350 **p<10⁻⁴**.
 
 ### Contrôles structurés & ablation reps
 
@@ -127,5 +143,9 @@ Même protocole sur `fla-hub/delta_net-2.7B-100B` (32 couches, 20 têtes) — **
 - `results/stage_a_science_toy.log` — sortie brute STAGE A (toy, 60 graines)
 - `results/stage_b_science_lm.log` — sortie brute STAGE B (DeltaNet-1.3B, 30 graines)
 - `results/stage_b_science_lm_2.7B.log` — confirmation DeltaNet-2.7B (20 graines)
-- `results/stage_b_disjoint.log` — précondition de disjonction (overlap vs disjoint)
+- `results/stage_b_disjoint.log`, `stage_b_disjoint2.log` — précondition de disjonction (2 et 3 niveaux)
+- `results/stage_b_rule_transfer.log`, `stage_b_rule_transfer_2.7B.log` — transfert de règle voyelle/consonne (held-out)
+- `results/stage_b_rule_probe.log` — généralisation in-context de règle (César + concept) sur 1.3B/2.7B
+- `results/stage_b_controls.log`, `stage_b_reps_ablation.log` — contrôles structurés et ablation reps
+- `scripts/diag_*.py` — scripts de diagnostic (rule transfer, disjoint, controls, probes)
 - `results/proto_demonstrations.log` — sortie brute du prototype

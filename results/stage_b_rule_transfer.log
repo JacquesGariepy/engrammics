@@ -1,0 +1,9 @@
+model: /home/jac/models/delta_net-1.3B-100B  rule=vowel/consonant  reps=3 ntrain=8 ntest=8 seeds=35
+  clean held-out (rule ceiling)    0.746  [0.671, 0.811]
+  no-transfer held-out             0.000  [0.000, 0.000]
+  random held-out                  0.025  [0.007, 0.050]
+  wrong-label engram held-out      0.007  [0.000, 0.018]
+  FULL RULE TRANSFER held-out      0.132  [0.064, 0.211]
+  full - notransfer      d=0.132 [0.064, 0.211] p=0.0000
+  full - random          d=0.107 [0.046, 0.179] p=0.0000
+  full - wrong-label     d=0.125 [0.057, 0.200] p=0.0000

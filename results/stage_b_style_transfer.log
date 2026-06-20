@@ -1,0 +1,7 @@
+model: /home/jac/models/delta_net-1.3B-100B  style=constant-output  reps=3 ntrain=8 ntest=8 seeds=40 (chance~0.1)
+  clean held-out (ceiling)       1.000  [1.000, 1.000]
+  no-transfer held-out           0.000  [0.000, 0.000]
+  random held-out                0.003  [0.000, 0.009]
+  FULL TRANSFER held-out         0.353  [0.234, 0.475]
+  full - notransfer      d=0.353 [0.234, 0.475] p=0.0000
+  full - random          d=0.350 [0.234, 0.469] p=0.0000
