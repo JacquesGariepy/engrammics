@@ -120,7 +120,8 @@ class Backend:
     def sub(self, a, b): raise NotImplementedError
     def low_rank(self, e, r): raise NotImplementedError
     def random_like(self, e, r): raise NotImplementedError
-    def govern(self, e, mode, r): raise NotImplementedError       # mode in {admit, deny}
+    def authorized_keys(self, skill): raise NotImplementedError   # consent subspace
+    def project(self, e, U): raise NotImplementedError            # admit through U
 
 
 # ---------------------------------------------------------------------------
@@ -173,12 +174,15 @@ class ToyBackend(Backend):
         M = A @ B
         return M * (np.linalg.norm(e) / (np.linalg.norm(M) + 1e-12))
 
-    def govern(self, e, mode, r):
-        U = np.linalg.svd(e, full_matrices=False)[0]
-        r = min(r, U.shape[1]); Ur = U[:, :r]; P = Ur @ Ur.T
-        if mode == "deny":
-            P = np.eye(P.shape[0]) - P
-        return P @ e
+    def authorized_keys(self, skill):
+        # the consent subspace is the span of the skill's ACTUAL keys (d_k side)
+        K = self._K(skill)                                   # (N, d_k)
+        _, s, Vt = np.linalg.svd(K, full_matrices=False)
+        r = int((s > 1e-8).sum())
+        return Vt[:r].T                                      # (d_k, r) orthonormal
+
+    def project(self, e, U):
+        return U @ (U.T @ e)                                 # P_U e on the d_k side
 
 
 # ---------------------------------------------------------------------------
@@ -188,21 +192,52 @@ class LMBackend(Backend):
     rank_grid = (1, 2, 4, 8, 16)
     r_ref = 10_000          # capped per head -> effectively full rank
 
-    def __init__(self, model_id, device="auto", n_pairs=5):
+    def __init__(self, model_id, device="auto", n_pairs=5, reps=3):
         import random as _random
         import torch
         import fla  # noqa: F401  (registers architectures)
         from transformers import AutoModelForCausalLM, AutoTokenizer
         self.torch = torch; self._random = _random; self.n_pairs = n_pairs
+        self.reps = reps                # times the skill table is shown when the
+                                        # engram is written (one pass is too weak
+                                        # for this checkpoint to store the map)
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "cpu"
         dtype = torch.bfloat16 if device == "cuda" else torch.float32
         self.device = device
         self.tok = AutoTokenizer.from_pretrained(model_id)
+        self.bos = self.tok.bos_token_id
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id, torch_dtype=dtype).to(device).eval()
+        # A constant, skill-agnostic primer. The fast state F we transfer is the
+        # per-layer RECURRENT state; the short-convolution window is local and is
+        # NOT transferable additively. Reading from a recurrent state injected
+        # into a fresh carrier therefore needs a realistic conv window, which the
+        # primer supplies. Its own recurrent write is discarded (overwritten by
+        # the injected engram) and it is identical across every condition and
+        # seed, so it leaks no skill information and cannot bias condition
+        # differences. Its keys (Q,Z,W) lie outside the task alphabet ABCDEFGH.
+        self.primer = "Q=4;Z=1;W=9;"
 
-    # ---- cache / state plumbing (ADAPT _iter if your fla version differs) ----
+        # Governance uses the ACTUAL keys, not the engram's SVD: we hook every
+        # DeltaNet layer's key short-conv (whose output spans the addressing
+        # keys; the subsequent l2-norm only rescales, preserving direction) and
+        # capture the per-token keys written for a skill. self._cap[i] holds the
+        # most recent key tensor for layer i.
+        self._cap = {}
+        self._dn = [m for _, m in self.model.named_modules()
+                    if m.__class__.__name__ == "DeltaNet"]
+        self.n_heads = self._dn[0].num_heads
+        self.head_k = self._dn[0].head_k_dim
+        for i, mod in enumerate(self._dn):
+            mod.k_conv1d.register_forward_hook(self._mk_hook(i))
+
+    def _mk_hook(self, i):
+        def hook(mod, inp, out):
+            self._cap[i] = (out[0] if isinstance(out, tuple) else out).detach()
+        return hook
+
+    # ---- cache / state plumbing (fla 0.5.x: cache[i] -> layer.state dict) -----
     def _iter(self, cache):
         st = getattr(cache, "states", None)
         if isinstance(st, (list, tuple)):
@@ -227,15 +262,17 @@ class LMBackend(Backend):
                 setattr(ls, "recurrent_state", rs)
         return cache
 
-    def _next(self, text, cache=None):
-        ids = self.tok(text, return_tensors="pt").input_ids.to(self.device)
-        out = self.model(input_ids=ids, past_key_values=cache, use_cache=True)
-        pred = int(out.logits[:, -1, :].argmax(-1))
-        return self.tok.decode([pred]).strip(), out.past_key_values
+    def _ids(self, text, bos=False):
+        # tokenize WITHOUT the automatic BOS (this tokenizer prepends <s> to every
+        # call); prepend a single BOS only when starting a fresh sequence, so a
+        # continuation never injects a spurious <s> mid-stream.
+        t = self.tok(text, add_special_tokens=False).input_ids
+        if bos:
+            t = [self.bos] + t
+        return self.torch.tensor([t], device=self.device)
 
-    def _cache_of(self, text):
-        ids = self.tok(text, return_tensors="pt").input_ids.to(self.device)
-        return self.model(input_ids=ids, use_cache=True).past_key_values
+    def _run(self, input_ids, cache=None):
+        return self.model(input_ids=input_ids, past_key_values=cache, use_cache=True)
 
     # ---- skill task: random injective letter -> digit map ----
     def chance(self):
@@ -248,27 +285,33 @@ class LMBackend(Backend):
         return Skill(list(zip(keys, vals)))
 
     def _demos(self, skill):
-        return "".join(f"{k}={v};" for k, v in skill.data)
+        return "".join(f"{k}={v};" for k, v in skill.data) * self.reps
 
     def engram(self, skill):
+        # the engram is the recurrent fast-weight state after reading the table
         with self.torch.no_grad():
-            return self._get(self._cache_of(self._demos(skill)))
+            return self._get(self._run(self._ids(self._demos(skill), bos=True))
+                             .past_key_values)
 
     def write_into(self, state, skill):
+        # continue writing a second skill on top of an injected recurrent state
         with self.torch.no_grad():
-            _, carrier = self._next("\n")
+            carrier = self._run(self._ids("", bos=True)).past_key_values  # [BOS]
             self._set(carrier, state)
-            ids = self.tok(self._demos(skill), return_tensors="pt").input_ids.to(self.device)
-            c2 = self.model(input_ids=ids, past_key_values=carrier, use_cache=True).past_key_values
+            c2 = self._run(self._ids(self._demos(skill), bos=False),
+                           cache=carrier).past_key_values
             return self._get(c2)
 
     def recall(self, state, skill):
+        # inject the recurrent state into a primed carrier, then greedily decode
+        # the answer to each "k=" query
         with self.torch.no_grad():
             ok = 0
             for k, v in skill.data:
-                _, carrier = self._next("\n")
+                carrier = self._run(self._ids(self.primer, bos=True)).past_key_values
                 self._set(carrier, state)
-                pred, _ = self._next(f"{k}=", cache=carrier)
+                out = self._run(self._ids(f"{k}=", bos=False), cache=carrier)
+                pred = self.tok.decode([int(out.logits[0, -1].argmax(-1))]).strip()
                 ok += int(pred == v)
             return ok / len(skill.data)
 
@@ -287,25 +330,40 @@ class LMBackend(Backend):
         out = []
         for s in e:
             k = min(r, s.shape[-1])
-            A = self.torch.randn(*s.shape[:-1], k, device=s.device, dtype=self.torch.float32)
-            B = self.torch.randn(*s.shape[:-2], k, s.shape[-1], device=s.device, dtype=self.torch.float32)
+            # deterministic per-state seed (mirrors the toy) so the random-engram
+            # control is reproducible rather than dependent on global RNG state
+            g = self.torch.Generator(device=s.device)
+            g.manual_seed(int(s.float().abs().sum().item() * 1e3) % (2 ** 31))
+            A = self.torch.randn(*s.shape[:-1], k, device=s.device,
+                                 dtype=self.torch.float32, generator=g)
+            B = self.torch.randn(*s.shape[:-2], k, s.shape[-1], device=s.device,
+                                 dtype=self.torch.float32, generator=g)
             M = A @ B
             M = M * (s.float().norm() / (M.norm() + 1e-9))
             out.append(M.to(s.dtype))
         return out
 
-    def govern(self, e, mode, r):
-        out = []
-        for s in e:
-            sf = s.float()
-            U = self.torch.linalg.svd(sf, full_matrices=False)[0]
-            k = min(r, U.shape[-1]); Ur = U[..., :k]
-            P = Ur @ Ur.transpose(-1, -2)
-            if mode == "deny":
-                eye = self.torch.eye(P.shape[-1], device=P.device, dtype=P.dtype)
-                P = eye - P
-            out.append((P @ sf).to(s.dtype))
-        return out
+    def authorized_keys(self, skill, thresh=1e-2):
+        # consent subspace from the skill's ACTUAL keys: write its table once,
+        # capture the per-token keys at every layer, and build a per-head
+        # projector onto the (d_k) subspace they span.
+        with self.torch.no_grad():
+            self._cap.clear()
+            self._run(self._ids(self._demos(skill), bos=True))
+            P = []
+            for i in range(len(self._dn)):
+                # [seq, n_heads, head_k] -> [n_heads, seq, head_k], batched SVD
+                k = self._cap[i].float().reshape(-1, self.n_heads, self.head_k) \
+                        .transpose(0, 1)
+                _, s, Vh = self.torch.linalg.svd(k, full_matrices=False)  # Vh [h,m,dk]
+                mask = (s > thresh * s[:, :1]).to(Vh.dtype)               # keep top dirs
+                Ph = Vh.transpose(-1, -2) @ (mask.unsqueeze(-1) * Vh)     # [h,dk,dk] proj
+                P.append(Ph.unsqueeze(0))
+            return P
+
+    def project(self, e, P):
+        # admit = project each layer's engram onto the authorized key subspace
+        return [(Ph @ s.float()).to(s.dtype) for s, Ph in zip(e, P)]
 
 
 # ============================================================================
@@ -334,14 +392,23 @@ def run_experiment(be, n_seeds, base_seed=0, verbose=True):
         acc["Y_after"].append(be.recall(be.add(baseY, eX), sy))
 
         joint = be.write_into(eX, sy)                               # read X then Y (real)
-        forget = be.sub(joint, eX)                                  # remove X's engram
+        forget = be.sub(joint, eX)            # forget-by-subtraction (key-free); the
+                                              # projection variant lives in engrammics_proto
         acc["joint_X"].append(be.recall(joint, sx))
         acc["joint_Y"].append(be.recall(joint, sy))
         acc["forget_X"].append(be.recall(forget, sx))
         acc["forget_Y"].append(be.recall(forget, sy))
 
-        acc["admit"].append(be.recall(be.add(baseY, be.govern(eX, "admit", rref)), sx))  # H4
-        acc["deny"].append(be.recall(be.add(baseY, be.govern(eX, "deny", rref)), sx))
+        # H4 governance = an engram is admitted to the extent it lies in the
+        # receiver's authorized KEY subspace U. Single definition for both
+        # backends: U is built from the skill's ACTUAL keys (toy: the exact key
+        # encoder; LM: the per-token DeltaNet keys captured at write time). The
+        # engram passes through U (admit) and is blocked in the complement (deny).
+        U_auth = be.authorized_keys(sx)                      # authorize X's key region
+        admit_engram = be.project(eX, U_auth)                # covered  -> passes
+        deny_engram = be.sub(eX, admit_engram)               # orthogonal -> blocked
+        acc["admit"].append(be.recall(be.add(baseY, admit_engram), sx))
+        acc["deny"].append(be.recall(be.add(baseY, deny_engram), sx))
 
         if verbose:
             print(f"  seed {i+1}/{n_seeds} done", flush=True)
@@ -432,6 +499,9 @@ def main():
     ap.add_argument("--seeds", type=int, default=50)
     ap.add_argument("--device", default="auto")
     ap.add_argument("--pairs", type=int, default=5)
+    ap.add_argument("--reps", type=int, default=3,
+                    help="LM only: times the skill table is shown when writing "
+                         "the engram (1 pass is too weak for the checkpoint)")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
@@ -446,7 +516,8 @@ def main():
         if not args.model:
             print("[FATAL] --backend lm requires --model or MODEL_ID")
             sys.exit(2)
-        be = LMBackend(args.model, device=args.device, n_pairs=args.pairs)
+        be = LMBackend(args.model, device=args.device, n_pairs=args.pairs,
+                       reps=args.reps)
 
     acc, grid = run_experiment(be, args.seeds, verbose=not args.quiet)
     code = evaluate(be, acc, grid)
