@@ -1,0 +1,11 @@
+model: /home/jac/models/delta_net-1.3B-100B  seeds: 8  (chance=0.10)
+clean=1.00  notransfer=0.12  full=0.70
+
+H4 governance (key-subspace):
+  admit (X thru X-keys)      = 0.70
+  deny  (orth. complement)   = 0.12
+  deny  (X thru Y-keys)      = 0.28
+
+H3 forgetting (joint X-then-Y): jointX=0.50 jointY=0.97
+  subtraction:  forget_X=0.00 forget_Y=0.18  (keepY drop=-0.80)
+  projection :  forget_X=0.05 forget_Y=0.15  (keepY drop=-0.82)

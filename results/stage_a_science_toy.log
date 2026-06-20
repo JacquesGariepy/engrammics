@@ -1,0 +1,40 @@
+========================================================================
+ DISTRIBUTED ENGRAMMICS -- scientific test   backend=toy   seeds=60
+========================================================================
+
+========================================================================
+ CONDITION MEANS  (95% bootstrap CI)        chance = 12.5%
+========================================================================
+  clean        100.0%   [100.0, 100.0]
+  notransfer    12.5%   [  9.8,  15.2]
+  random        12.1%   [  9.0,  15.2]
+  r1            28.7%   [ 26.0,  31.7]
+  r2            55.0%   [ 51.5,  58.5]
+  r4            88.8%   [ 85.8,  91.5]
+  r8           100.0%   [100.0, 100.0]
+  full         100.0%   [100.0, 100.0]
+  Y_before     100.0%   [100.0, 100.0]
+  Y_after      100.0%   [100.0, 100.0]
+  joint_X      100.0%   [100.0, 100.0]
+  joint_Y      100.0%   [100.0, 100.0]
+  forget_X       0.2%   [  0.0,   0.6]
+  forget_Y     100.0%   [100.0, 100.0]
+  admit        100.0%   [100.0, 100.0]
+  deny          12.5%   [  9.8,  15.2]
+
+========================================================================
+ HYPOTHESIS TESTS  (paired bootstrap, 95% CI, Holm-corrected primary)
+========================================================================
+  test                         Δ mean              95% CI       p  verdict
+  H1a full>no-transfer          87.5% [  84.8,  90.2]   0.000  SUPPORTED (Holm ok)
+  H1b full>random               87.9% [  84.8,  90.8]   0.000  SUPPORTED (Holm ok)
+  H4 admit>deny                 87.5% [  84.8,  90.2]   0.000  SUPPORTED (Holm ok)
+  H5 r_max>r_min                71.2% [  68.3,  74.0]   0.000  SUPPORTED (Holm ok)
+  H2 Y preserved (equiv)         0.0% [   0.0,   0.0]   0.000  SUPPORTED
+  H3 forget X (drop)            99.8% [  99.4, 100.0]   0.000  SUPPORTED
+  H3 forget X (keep Y)           0.0% [   0.0,   0.0]   0.000  SUPPORTED
+
+========================================================================
+ THEORY (H1): SUPPORTED -- transfer beats both controls and chance.
+ Secondary: H2=SUPPORTED  H3=SUPPORTED  H4=SUPPORTED (Holm ok)  H5=monotone/SUPPORTED (Holm ok)
+========================================================================

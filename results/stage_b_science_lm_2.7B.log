@@ -1,0 +1,61 @@
+========================================================================
+ DISTRIBUTED ENGRAMMICS -- scientific test   backend=lm   seeds=20
+========================================================================
+  seed 1/20 done
+  seed 2/20 done
+  seed 3/20 done
+  seed 4/20 done
+  seed 5/20 done
+  seed 6/20 done
+  seed 7/20 done
+  seed 8/20 done
+  seed 9/20 done
+  seed 10/20 done
+  seed 11/20 done
+  seed 12/20 done
+  seed 13/20 done
+  seed 14/20 done
+  seed 15/20 done
+  seed 16/20 done
+  seed 17/20 done
+  seed 18/20 done
+  seed 19/20 done
+  seed 20/20 done
+
+========================================================================
+ CONDITION MEANS  (95% bootstrap CI)        chance = 10.0%
+========================================================================
+  clean        100.0%   [100.0, 100.0]
+  notransfer     7.0%   [  3.0,  11.0]
+  random         1.0%   [  0.0,   3.0]
+  r1             7.0%   [  3.0,  11.0]
+  r2             7.0%   [  3.0,  11.0]
+  r4            14.0%   [  9.0,  19.0]
+  r8            26.0%   [ 17.0,  35.0]
+  r16           55.0%   [ 46.0,  63.0]
+  full          61.0%   [ 52.0,  69.0]
+  Y_before     100.0%   [100.0, 100.0]
+  Y_after       71.0%   [ 63.0,  80.0]
+  joint_X       55.0%   [ 48.0,  62.0]
+  joint_Y       88.0%   [ 83.0,  93.0]
+  forget_X       8.0%   [  4.0,  12.0]
+  forget_Y      27.0%   [ 20.0,  35.0]
+  admit         59.0%   [ 50.0,  67.0]
+  deny           7.0%   [  3.0,  11.0]
+
+========================================================================
+ HYPOTHESIS TESTS  (paired bootstrap, 95% CI, Holm-corrected primary)
+========================================================================
+  test                         Δ mean              95% CI       p  verdict
+  H1a full>no-transfer          54.0% [  45.0,  63.0]   0.000  SUPPORTED (Holm ok)
+  H1b full>random               60.0% [  51.0,  68.0]   0.000  SUPPORTED (Holm ok)
+  H4 admit>deny                 52.0% [  43.0,  61.0]   0.000  SUPPORTED (Holm ok)
+  H5 r_max>r_min                48.0% [  39.0,  57.0]   0.000  SUPPORTED (Holm ok)
+  H2 Y preserved (equiv)       -29.0% [ -37.0, -20.0]   1.000  NOT SUPPORTED
+  H3 forget X (drop)            47.0% [  40.0,  54.0]   0.000  SUPPORTED
+  H3 forget X (keep Y)         -61.0% [ -70.0, -52.0]   1.000  NOT SUPPORTED
+
+========================================================================
+ THEORY (H1): SUPPORTED -- transfer beats both controls and chance.
+ Secondary: H2=NOT SUPPORTED  H3=NOT SUPPORTED  H4=SUPPORTED (Holm ok)  H5=monotone/SUPPORTED (Holm ok)
+========================================================================

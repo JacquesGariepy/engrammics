@@ -1,0 +1,61 @@
+======================================================================
+ENGRAMMIQUE DISTRIBUEE -- prototype  (20 graines, moyenne +/- ecart-type)
+======================================================================
+
+[verif gradient] erreur relative vs differences finies : 5.77e-10  (OK)
+
+--- Conatus : apprendre a inscrire (rappel vs charge) -----------
+ N assoc. |             init |         entraine
+        8 |          99.7%  |         100.0%
+       16 |          97.6%  |          99.9%
+       24 |          92.1%  |          99.1%
+       32 |          84.6%  |          97.2%
+
+--- C1  Persistance ---------------------------------------------
+rappel avant/apres save-load : 100% / 100%   (ecart max sur F : 0.0e+00)
+
+--- C2  Transfert sans gradient (regime controle) ---------------
+A possede X ; B possede deja Y ; B integre un delta de rang r.
+ rang r | cout (floats) |    rappel X chez B
+      1 |           112 |      22.5 +/-  8.5
+      2 |           224 |      50.6 +/- 11.5
+      4 |           448 |      90.0 +/-  9.4
+      8 |           896 |     100.0 +/-  0.0
+Y preserve (au rang 4) : 100.0 +/-  0.0 %
+Reference replay brut : 768 floats. Gain seulement si la competence est compressible (ici rang <= 4).
+
+--- C3  Oubli cible (substrat rapide) ---------------------------
+signal de X apres projection :  0.00 +/- 0.00 (s'effondre vers 0)
+retention de Y (sous-espaces ~disjoints) : 100.0 +/-  0.0 %
+
+--- C4  Gouvernance (consentement = sous-espace admis) ----------
+engramme dans le sous-espace admis : 100.0 +/-  0.0 %
+engramme hors du sous-espace admis :   9.4 +/-  9.6 %
+
+--- Agents heterogenes  Wk_A != Wk_B ----------------------------
+meme espace de cles (borne sup)   : 100.0 +/-  0.0 %
+transfert naif (sans alignement)  :  12.5 +/- 14.3 %   <- le delta n'a pas de sens
+avec alignement appris (128 ancres): 100.0 +/-  0.0 %
+
+--- Sensibilite au facteur d'integration alpha (rang 4) ---------
+alpha=0.25 : X chez B  65.6 +/- 17.6 %   |  Y preserve 100.0 +/-  0.0 %
+alpha= 0.5 : X chez B  81.2 +/- 11.5 %   |  Y preserve 100.0 +/-  0.0 %
+alpha= 1.0 : X chez B  90.0 +/-  9.4 %   |  Y preserve 100.0 +/-  0.0 %
+alpha= 1.5 : X chez B  91.9 +/-  8.2 %   |  Y preserve 100.0 +/-  0.0 %
+alpha= 2.0 : X chez B  91.9 +/-  8.2 %   |  Y preserve 100.0 +/-  0.0 %
+
+--- Oubli vs recouvrement des sous-espaces (retention de Y) ------
+recouvrement= 0.0 : retention Y 100.0 +/-  0.0 %
+recouvrement=0.25 : retention Y 100.0 +/-  0.0 %
+recouvrement= 0.5 : retention Y 100.0 +/-  0.0 %
+recouvrement=0.75 : retention Y 100.0 +/-  0.0 %
+recouvrement= 1.0 : retention Y  16.9 +/- 14.9 %
+
+--- Robustesse au bruit sur l'engramme transmis (rang 8) --------
+sigma= 0.0 : rappel X 100.0 +/-  0.0 %
+sigma=0.05 : rappel X 100.0 +/-  0.0 %
+sigma= 0.1 : rappel X 100.0 +/-  0.0 %
+sigma= 0.2 : rappel X 100.0 +/-  0.0 %
+sigma= 0.4 : rappel X 100.0 +/-  0.0 %
+
+======================================================================

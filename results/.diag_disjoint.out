@@ -1,0 +1,9 @@
+model: /home/jac/models/delta_net-1.3B-100B  seeds: 8  pairs: 4
+== OVERLAPPING  (X,Y both ABCDEFGH x 0-9) ==
+  H2  dY (Y after-before adding X) = -0.19
+  H3  keepY drop  (subtraction)    = -0.81
+  H3  keepY drop  (projection)     = -0.84   dropX(proj)=+0.47
+== DISJOINT     (X: ABCD x 01234 | Y: EFGH x 56789) ==
+  H2  dY (Y after-before adding X) = -0.03
+  H3  keepY drop  (subtraction)    = -0.75
+  H3  keepY drop  (projection)     = -0.62   dropX(proj)=+0.94
