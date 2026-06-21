@@ -15,11 +15,11 @@ needs an NVIDIA GPU; we used a single RTX 3090 (24 GB). The largest model
 ## 1. What is in the repo vs. what is not
 
 In the repo:
-- `src/` — the harness and the toy backend (3 files, all used; see below).
-- `scripts/` — diagnostic scripts. Some produce paper numbers, some are
+- `src/`: the harness and the toy backend (3 files, all used; see below).
+- `scripts/`: diagnostic scripts. Some produce paper numbers, some are
   development-only; the split is listed in §5.
-- `results/` — every raw log and the per-seed CSVs that back the tables.
-- `doc/` — the LaTeX source and compiled PDF.
+- `results/`: every raw log and the per-seed CSVs that back the tables.
+- `doc/`: the LaTeX source and compiled PDF.
 - `requirements.txt`, this file.
 
 NOT in the repo (recreate locally; see §2-§3):

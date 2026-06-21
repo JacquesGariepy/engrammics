@@ -5,15 +5,15 @@
 In linear-attention models (DeltaNet, RWKV-7) a skill learned in context lives in
 the recurrent fast-weight state as a low-rank, additive object. This repo shows
 you can *extract* that object from one agent, *add* it to another's state with no
-gradient step, and have the second agent perform the skill — plus an algebra for
+gradient step, and have the second agent perform the skill, plus an algebra for
 forgetting and subspace-gated governance. Full write-up: [`doc/engrammics_arxiv.pdf`](doc/engrammics_arxiv.pdf).
 
 **Scope and honest limits.** This works only for architectures with a single
-additive recurrent state (linear attention) — **not** standard softmax
+additive recurrent state (linear attention), **not** standard softmax
 transformers, i.e. not most models deployed today. And we report what fails as
 plainly as what works: on the real DeltaNet, gradient-free transfer, the rank
 dose-response, and captured-key governance hold, but **two of the four operations
-fail naively** — interference-free superposition (H2) damages the host skill, and
+fail naively**: interference-free superposition (H2) damages the host skill, and
 "surgical" forgetting (H3) erases the host along with the target. Both are
 *recoverable*, but only as **lossy, tunable trade-offs** with the same key
 projector (orthogonal injection preserves the host at a transfer-fidelity cost;
@@ -28,7 +28,7 @@ paper.
 The controlled-regime result (paper Tables 1–2: gradient-free transfer separating
 from both controls by ≈88 points, with a rank dose-response, non-interference,
 targeted forgetting, and subspace governance) runs on **CPU in seconds** and needs
-**only NumPy** — no GPU, no model download:
+**only NumPy** (no GPU, no model download):
 
 ```bash
 python src/engrammics_science.py --backend toy --seeds 60 --quiet
@@ -66,7 +66,7 @@ python src/engrammics_science.py --backend lm \
        --dump results/perseed_lm_1.3B.csv
 ```
 
-Expected output — the real verdicts, **including the two that fail** on the dense
+Expected output: the real verdicts, **including the two that fail** on the dense
 model (this is what the scorecard reports, not just the wins):
 
 ```
