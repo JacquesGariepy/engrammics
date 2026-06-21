@@ -1,0 +1,10 @@
+model: /home/jac/models/delta_net-1.3B-100B  task=letter->2-digit (multi-token)  reps=3 pairs=5 seeds=40
+  (a value is correct only if BOTH decoded tokens match; chance ~ 1/90 per pair)
+  clean (ceiling)          0.985  [0.965, 1.000]
+  no-transfer              0.010  [0.000, 0.025]
+  random engram            0.000  [0.000, 0.000]
+  shuffled-key engram      0.100  [0.060, 0.145]
+  FULL TRANSFER            0.635  [0.580, 0.690]
+  full - notransfer      d=0.625 [0.570, 0.680] p=0.0000
+  full - random          d=0.635 [0.580, 0.690] p=0.0000
+  full - shuffled-key    d=0.535 [0.465, 0.600] p=0.0000
