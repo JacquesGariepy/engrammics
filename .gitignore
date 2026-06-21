@@ -1,1 +1,17 @@
 /.out-of-code-insights
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# LaTeX build artifacts
+doc/*.aux
+doc/*.fdb_latexmk
+doc/*.fls
+doc/*.log
+doc/*.out
+doc/*.synctex.gz
+
+# Local environments / models are documented in REPRODUCE.md, never committed
+.venv/
+*.venv*/

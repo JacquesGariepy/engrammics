@@ -1,0 +1,22 @@
+# Distributed Engrammics -- pinned dependencies.
+# Tested on WSL2 Ubuntu 24.04, Python 3.12.3, NVIDIA RTX 3090 (24 GB),
+# NVIDIA driver 591.86 / CUDA 13.1 runtime. torch pulls its own CUDA wheels.
+#
+# Install ORDER matters: install torch first (it resolves the CUDA stack), then
+# the flash-linear-attention stack:
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install --upgrade pip
+#   pip install torch==2.12.1
+#   pip install -r requirements.txt
+#
+# The toy/controlled backend (src/engrammics_proto.py and
+# `engrammics_science.py --backend toy`) needs ONLY numpy and runs on CPU.
+
+torch==2.12.1
+flash-linear-attention==0.5.1
+transformers==5.12.1
+tokenizers==0.22.2
+huggingface_hub==1.20.1
+safetensors==0.8.0
+accelerate==1.14.0
+numpy==2.4.6
