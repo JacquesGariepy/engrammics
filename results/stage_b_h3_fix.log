@@ -1,0 +1,5 @@
+model: /home/jac/models/delta_net-1.3B-100B  seeds: 24  HARD regime (shared alphabet)  chance=0.10
+  joint:           read X=0.550  read Y=0.867
+  naive subtraction      forget X->0.017 (dropX=+0.533)   keep Y->0.242 (keepY=-0.625)
+  full key-projection    forget X->0.025 (dropX=+0.525)   keep Y->0.208 (keepY=-0.658)
+  X-only key-projection  forget X->0.333 (dropX=+0.217)   keep Y->0.933 (keepY=+0.067)

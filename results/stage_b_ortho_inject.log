@@ -1,0 +1,9 @@
+model: /home/jac/models/delta_net-1.3B-100B  seeds: 30  (chance=0.10)
+  X clean (ceiling)                1.000  [1.000, 1.000]
+  Y before                         1.000  [1.000, 1.000]
+  Y after, NAIVE add (H2 fail)     0.673  [0.607, 0.740]
+  Y after, ORTHO add (H2 fix)      1.000  [1.000, 1.000]
+  X transfer, NAIVE                0.747  [0.687, 0.807]
+  X transfer, ORTHO                0.413  [0.353, 0.480]
+  -> H2 host damage:  naive=-0.327   ortho=+0.000   (closer to 0 = fixed)
+  -> H1 transfer:     naive=0.747    ortho=0.413

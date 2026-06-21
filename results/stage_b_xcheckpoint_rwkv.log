@@ -1,0 +1,10 @@
+loading A and B...
+learning alignment from 24 anchors...
+
+CROSS-CHECKPOINT: A=rwkv7-1.5B-g1  B=rwkv7-1.5B-world
+anchors=24 seeds=25 (chance=0.10)
+  A reads own engram (ref)           1.000  [1.000, 1.000]
+  B reads own engram (upper bound)   1.000  [1.000, 1.000]
+  naive A->B (no alignment)          0.040  [0.008, 0.072]
+  aligned A->B (learned W)           0.968  [0.936, 0.992]
+  aligned - naive   d=0.928 [0.872, 0.976] p=0.0000

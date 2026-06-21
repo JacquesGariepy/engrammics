@@ -98,6 +98,22 @@ Tests d'hypothèses (bootstrap apparié, IC 95 %, primaires Holm) :
 
   La non-interférence (H2) **s'annule dès que les symboles sont disjoints** (dY −0,20 → 0,00), même séparateurs partagés → H2 entièrement expliqué par le recouvrement de clés de symboles. L'oubli devient quasi-chirurgical seulement en FULL (dropX +1,00, keepY −0,30 vs −0,61). Le résidu −0,30 est honnête : le format partagé couple encore légèrement via le traitement positionnel. **Dose-réponse avec point final propre pour l'interférence** : les deux dégradations suivent le recouvrement de clés, pas le mécanisme de transfert.
 
+- **Réparation de H2 à l'injection — SANS retraining (`diag_ortho_inject.py`, 30 graines)** : au lieu d'ajouter `eX` brut, on l'ajoute projeté orthogonalement aux clés de l'hôte : `eX' = (I − P_Y) eX`. Résultat : **dommage à l'hôte = 0,00** (Y reste à 1,000 vs naïf 0,673, dommage −0,327) ; coût : fidélité du transfert X passe de 0,747 à 0,413 (on garde la part de X disjointe de Y). ⇒ la non-interférence n'est **pas perdue mais achetable** : compromis réglable préservation/fidélité, **avec la même machinerie de gouvernance** (le projecteur de consentement sert aussi d'allocateur anti-collision).
+
+- **Réparation de H3 à l'oubli — Y-safe, SANS retraining (`diag_h3_fix.py`, 24 graines, régime difficile alphabet partagé)** : oublier X en ne retirant que ses directions de clés **orthogonales à Y** (`P_{X\Y}`). joint X=0,550 Y=0,867 ; soustraction naïve dropX +0,533 mais **keepY −0,625** (Y détruit) ; projection complète keepY −0,658 ; **projection X-only dropX +0,217, keepY +0,067** (Y préservé : 0,867→0,933). ⇒ dual exact de H2 : oubli **Y-safe** au prix d'un retrait partiel de X (part partagée subsiste). Les deux propriétés idéalisées (H2, H3) deviennent des **compromis réglables avec le même projecteur de clés** — deux limites deviennent une méthode.
+
+- **Cross-checkpoint — RÉUSSI (`diag_xcheckpoint.py`, 25 graines + 24 ancres)** : transfert entre **deux checkpoints RWKV-7-1.5B vraiment différents** — `g1` (raisonnement) → `world` (base multilingue), mêmes dims, entraînements distincts, états récurrents compatibles mais bases de clés différentes. Les deux font la tâche (plafond 1,000).
+
+  | Condition | Valeur |
+  |---|---|
+  | B (world) lit son propre engramme | 1,000 |
+  | **naïf g1→world (sans alignement)** | **0,040** (≈ hasard) |
+  | **aligné g1→world (W appris)** | **0,968** [0,936, 0,992] |
+  | aligné − naïf | **+0,928 p<10⁻⁴** |
+
+  ⇒ le transfert naïf entre checkpoints différents **échoue** (l'engramme est adressé dans la base de clés du donneur), mais l'**alignement linéaire appris** (`F_B ≈ W F_A`, par couche/tête, depuis 24 ancres partagées) le **récupère intégralement** (0,968 ≈ plafond de B). C'est le résultat hétérogène du jouet (Table 4) **reproduit à l'échelle LM, entre deux entraînements distincts**. Le scénario qui motive le papier est donc démontré. (Suppose même architecture/dims + ancres partageables ; cross-**architecture** reste ouvert.)
+  - Tentative préalable `delta_net-1.3B-100B → delta_net-1.3B-8K-100B` abandonnée : le 8K ne fait pas la tâche (rappel propre 0,000), paire invalide.
+
 ### Compétence vs dictionnaire — le verrou central, FRANCHI
 
 La tâche de rappel transfère une **table mémorisée**. Test direct du caractère « compétence » : l'engramme agit-il sur des entrées **jamais montrées** (held-out) ?
