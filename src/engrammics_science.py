@@ -503,6 +503,9 @@ def main():
                     help="LM only: times the skill table is shown when writing "
                          "the engram (1 pass is too weak for the checkpoint)")
     ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--dump", default="",
+                    help="write per-seed condition accuracies to this CSV path "
+                         "(one row per seed) for audit/reproducibility")
     args = ap.parse_args()
 
     print("=" * 72)
@@ -520,6 +523,14 @@ def main():
                        reps=args.reps)
 
     acc, grid = run_experiment(be, args.seeds, verbose=not args.quiet)
+    if args.dump:
+        cols = list(acc.keys())
+        with open(args.dump, "w") as f:
+            f.write("seed," + ",".join(cols) + "\n")
+            for i in range(args.seeds):
+                f.write(str(i) + "," +
+                        ",".join(f"{acc[c][i]:.6f}" for c in cols) + "\n")
+        print(f"[dump] per-seed accuracies -> {args.dump}")
     code = evaluate(be, acc, grid)
     sys.exit(code)
 

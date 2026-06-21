@@ -21,6 +21,7 @@
   seed 18/20 done
   seed 19/20 done
   seed 20/20 done
+[dump] per-seed accuracies -> results/perseed_lm_2.7B.csv
 
 ========================================================================
  CONDITION MEANS  (95% bootstrap CI)        chance = 10.0%

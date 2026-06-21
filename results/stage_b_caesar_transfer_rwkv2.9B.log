@@ -1,0 +1,8 @@
+model: /home/jac/models/rwkv7-2.9B-g1  rule=Caesar k=2  reps=3 ntrain=10 ntest=8 seeds=50 (chance~0.038)
+  engram alone (rule ceiling)    0.440  [0.385, 0.492]
+  random engram alone            0.005  [0.000, 0.013]
+  wrong-shift engram alone       0.080  [0.050, 0.115]
+  recipient alone (knows rule)   0.620  [0.573, 0.665]
+  superposed transfer            0.492  [0.442, 0.542]
+  clean - random         d=0.435 [0.378, 0.490] p=0.0000
+  clean - wrong-shift    d=0.360 [0.295, 0.425] p=0.0000

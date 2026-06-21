@@ -1,0 +1,9 @@
+model: /home/jac/models/rwkv7-1.5B-g1  rule=vowel/consonant  reps=3 ntrain=8 ntest=8 seeds=31
+  clean held-out (rule ceiling)    0.782  [0.746, 0.815]
+  no-transfer held-out             0.000  [0.000, 0.000]
+  random held-out                  0.081  [0.028, 0.149]
+  wrong-label engram held-out      0.044  [0.016, 0.081]
+  FULL RULE TRANSFER held-out      0.173  [0.077, 0.282]
+  full - notransfer      d=0.173 [0.077, 0.282] p=0.0000
+  full - random          d=0.093 [0.016, 0.177] p=0.0087
+  full - wrong-label     d=0.129 [0.032, 0.238] p=0.0020

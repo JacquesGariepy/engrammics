@@ -20,8 +20,9 @@ SEEDS = int(os.environ.get("SEEDS", 40))
 AL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 VOW = set("AEIOU")
 PRIMER = "1=1;2=2;3=3;"
-tok = AutoTokenizer.from_pretrained(mid)
-model = AutoModelForCausalLM.from_pretrained(mid, torch_dtype=torch.bfloat16).to("cuda").eval()
+tok = AutoTokenizer.from_pretrained(mid, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(mid, torch_dtype=torch.bfloat16,
+                                             trust_remote_code=True).to("cuda").eval()
 BOS = tok.bos_token_id
 
 
@@ -85,14 +86,21 @@ for s in range(SEEDS):
     if all(x in VOW for x in train) or all(x not in VOW for x in train):
         continue
     trainY = rng.sample(list(AL), NTRAIN)
-    eX = engram(demos_rule(train, a, b))           # the rule engram
-    eXw = engram(demos_rule(train, b, a))          # swapped labels
-    eY = engram(demos_const(trainY, cY))           # recipient's unrelated skill
-    clean.append(score(eX, test, a, b))                    # rule generalizes? (ceiling)
-    notrans.append(score(eY, test, a, b))                  # recipient alone
-    rnd.append(score(add(eY, random_like(eX)), test, a, b))
-    full.append(score(add(eY, eX), test, a, b))            # RULE TRANSFER on held-out
-    wrong.append(score(add(eY, eXw), test, a, b))          # swapped-label engram
+    try:
+        eX = engram(demos_rule(train, a, b))       # the rule engram
+        eXw = engram(demos_rule(train, b, a))      # swapped labels
+        eY = engram(demos_const(trainY, cY))       # recipient's unrelated skill
+        # compute all conditions before appending so the lists stay aligned
+        c = score(eX, test, a, b)                  # rule generalizes? (ceiling)
+        nt = score(eY, test, a, b)                 # recipient alone
+        rn = score(add(eY, random_like(eX)), test, a, b)
+        fl = score(add(eY, eX), test, a, b)        # RULE TRANSFER on held-out
+        wr = score(add(eY, eXw), test, a, b)       # swapped-label engram
+    except Exception as e:
+        sys.stderr.write("skip seed %d: %r\n" % (s, e))
+        continue
+    clean.append(c); notrans.append(nt); rnd.append(rn)
+    full.append(fl); wrong.append(wr)
 
 
 def boot(d):

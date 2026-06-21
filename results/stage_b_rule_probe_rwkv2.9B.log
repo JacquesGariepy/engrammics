@@ -1,0 +1,27 @@
+model: /home/jac/models/rwkv7-2.9B-g1   (chance ~ 1/26 = 0.038)
+
+# Caesar shift, held-out generalization. cols: held-out acc | wrong-rule acc
+  sep='>' reps=1 k=1 :  held=0.82  wrong=0.07
+  sep='>' reps=1 k=2 :  held=0.33  wrong=0.08
+  sep='>' reps=1 k=3 :  held=0.12  wrong=0.02
+  sep='>' reps=1 k=5 :  held=0.12  wrong=0.02
+  sep='>' reps=3 k=1 :  held=0.97  wrong=0.12
+  sep='>' reps=3 k=2 :  held=0.35  wrong=0.07
+  sep='>' reps=3 k=3 :  held=0.18  wrong=0.05
+  sep='>' reps=3 k=5 :  held=0.07  wrong=0.02
+  sep='>' reps=6 k=1 :  held=0.95  wrong=0.13
+  sep='>' reps=6 k=2 :  held=0.28  wrong=0.05
+  sep='>' reps=6 k=3 :  held=0.17  wrong=0.02
+  sep='>' reps=6 k=5 :  held=0.07  wrong=0.00
+  sep='=' reps=1 k=1 :  held=0.67  wrong=0.05
+  sep='=' reps=1 k=2 :  held=0.15  wrong=0.08
+  sep='=' reps=1 k=3 :  held=0.05  wrong=0.07
+  sep='=' reps=1 k=5 :  held=0.08  wrong=0.03
+  sep='=' reps=3 k=1 :  held=0.87  wrong=0.07
+  sep='=' reps=3 k=2 :  held=0.15  wrong=0.03
+  sep='=' reps=3 k=3 :  held=0.07  wrong=0.03
+  sep='=' reps=3 k=5 :  held=0.05  wrong=0.03
+  sep='=' reps=6 k=1 :  held=0.87  wrong=0.10
+  sep='=' reps=6 k=2 :  held=0.08  wrong=0.02
+  sep='=' reps=6 k=3 :  held=0.05  wrong=0.03
+  sep='=' reps=6 k=5 :  held=0.03  wrong=0.02

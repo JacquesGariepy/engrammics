@@ -9,8 +9,9 @@ import torch, fla  # noqa
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 mid = sys.argv[1] if len(sys.argv) > 1 else os.environ["MODEL_ID"]
-tok = AutoTokenizer.from_pretrained(mid)
-model = AutoModelForCausalLM.from_pretrained(mid, torch_dtype=torch.bfloat16).to("cuda").eval()
+tok = AutoTokenizer.from_pretrained(mid, trust_remote_code=True)
+model = AutoModelForCausalLM.from_pretrained(mid, torch_dtype=torch.bfloat16,
+                                             trust_remote_code=True).to("cuda").eval()
 BOS = tok.bos_token_id
 AL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
