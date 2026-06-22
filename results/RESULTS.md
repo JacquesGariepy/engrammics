@@ -155,6 +155,17 @@ La tâche de rappel transfère une **table mémorisée**. Test direct du caract�
 
   ⇒ **transfert sans gradient d'une règle ARBITRAIRE généralisante** vers un receveur, sur un modèle capable de l'apprendre en contexte. Le contrôle **wrong-shift** (même format/structure, décalage différent) est décisif : à 0,08, il ne reproduit pas la cible → c'est bien la **règle** qui voyage, pas un prior ni la forme de l'engramme. Borné par le plafond in-context (~0,44). Caveat fla RWKV-7 non bit-exact.
 
+- **FAMILLE de règles induites : RWKV-7 2.9B (`diag_rule_family.py`, 50 graines)** : pour réfuter le « n=1 », on teste 3 règles de plus (engramme seul → receveur neutre, held-out), chacune vs random ET vs **wrong-rule** (même structure, transformation différente = contrôle de spécificité décisif).
+
+  | Règle | engramme seul | Δ vs random | Δ vs wrong-rule | spécifique ? |
+  |---|---|---|---|---|
+  | Caesar k=3 | 0,205 | +0,205 (p<10⁻⁴) | +0,145 (p<10⁻⁴) | ✅ |
+  | Caesar k=5 (plus dur) | 0,075 | +0,070 (p<10⁻⁴) | +0,052 (p<10⁻⁴) | ✅ |
+  | **Atbash** (réflexion x→25−x, **non-translation**) | 0,172 | +0,168 (p<10⁻⁴) | +0,122 (p<10⁻⁴) | ✅ |
+  | digit:3 (autre domaine, x→(x+3) mod 10) | 0,107 | +0,107 (p<10⁻⁴) | **−0,030 (p=0,95)** | ❌ |
+
+  ⇒ **4 règles induites distinctes** (k=2 ci-dessus + k=3, k=5, Atbash) de **2 types structurels** (translations + une **réflexion**) transfèrent spécifiquement → le claim « règle, pas dictionnaire » ne repose plus sur n=1. **Limite honnête** : sur le domaine **chiffres**, l'engramme bat le random mais **pas** le wrong-rule (le digit:7 fait aussi bien) → pas de transfert spécifique là ; le modèle n'induit pas proprement la règle modulaire sur 10 symboles.
+
 ### Tâche moins-jouet (multi-token) & baseline shuffled-key
 
 - **`diag_multitoken.py`, 40 graines** : letter → **valeur 2 chiffres**, correcte seulement si les **deux tokens** matchent (hasard ~1/90). plafond 0,985 ; no-transfer 0,010 ; random 0,000 ; **shuffled-key** (clés+valeurs correctes, appariement permuté) **0,100** ; **FULL TRANSFER 0,635**. Δ vs no-transfer +0,625, vs random +0,635, **vs shuffled-key +0,535** (tous p<10⁻⁴). ⇒ (1) l'engramme porte de vraies **associations multi-token**, pas du single-token ; (2) le transfert dépend de l'**appariement clé↔valeur** spécifique (shuffled-key le casse), pas juste de la présence des bonnes clés/valeurs.
@@ -183,12 +194,41 @@ Même protocole sur `fla-hub/delta_net-2.7B-100B` (32 couches, 20 têtes), **tou
 
 ## Fichiers
 
-- `results/stage_a_science_toy.log` : sortie brute STAGE A (toy, 60 graines)
-- `results/stage_b_science_lm.log` : sortie brute STAGE B (DeltaNet-1.3B, 30 graines)
-- `results/stage_b_science_lm_2.7B.log` : confirmation DeltaNet-2.7B (20 graines)
-- `results/stage_b_disjoint.log`, `stage_b_disjoint2.log` : précondition de disjonction (2 et 3 niveaux)
-- `results/stage_b_rule_transfer.log`, `stage_b_rule_transfer_2.7B.log` : transfert de règle voyelle/consonne (held-out)
-- `results/stage_b_rule_probe.log` : généralisation in-context de règle (César + concept) sur 1.3B/2.7B
-- `results/stage_b_controls.log`, `stage_b_reps_ablation.log` : contrôles structurés et ablation reps
-- `scripts/diag_*.py` : scripts de diagnostic (rule transfer, disjoint, controls, probes)
-- `results/proto_demonstrations.log` : sortie brute du prototype
+Inventaire complet, mis en regard des éléments du papier (`doc/engrammics_arxiv.tex`). Chaque log est cité une fois dans `REPRODUCE.md` §4, qui donne la commande exacte qui l'a produit.
+
+**Régime contrôlé (CPU, NumPy)**
+- `results/stage_a_science_toy.log` : Tables `tab:means` + `tab:tests` (toy, 60 graines)
+- `results/proto_demonstrations.log` : Tables `tab:capacity`, `tab:hetero`, sensibilités + vérif du gradient (20 graines)
+
+**Langage-modèle : protocole principal (DeltaNet)**
+- `results/stage_b_science_lm.log` + `results/perseed_lm_1.3B.csv` : Tables `tab:lm-means` + `tab:lm-tests` (1.3B, 30 graines, par-seed)
+- `results/perseed_lm_2.7B.csv` : par-seed de la confirmation 2.7B
+- `results/stage_b_science_lm_2.7B.log` : confirmation DeltaNet-2.7B (20 graines) : paragraphe « Robustness across model size »
+- `results/stage_b_reps_ablation.log` : ablation reps=1/2/3 (15 graines chacune) : paragraphe « Specificity and the role of repetition »
+
+**Dégradations et réparations (DeltaNet-1.3B)**
+- `results/stage_b_disjoint2.log` : Table `tab:disjoint`, précondition de disjonction 3 niveaux (16 graines)
+- `results/stage_b_disjoint.log` : précurseur 2 niveaux (16 graines) : développement-only, cité dans `REPRODUCE.md` §5
+- `results/stage_b_controls.log` : contrôles structurés shuffled-values / wrong-skill (30 graines) : paragraphe « Specificity and the role of repetition »
+- `results/stage_b_multitoken.log` : associations multi-token + contrôle shuffled-key (40 graines) : paragraphe « Multi-token associations »
+- `results/stage_b_ortho_inject.log` : réparation H2 par injection orthogonale (30 graines) : paragraphe « Engineering non-interference at injection time »
+- `results/stage_b_h3_fix.log` : réparation H3 par oubli X-only (24 graines) : paragraphe « Engineering Y-safe forgetting »
+
+**Mémoire ou compétence ? (transfert de règle)**
+- `results/stage_b_rule_probe.log` : sondes César + concept, DeltaNet 1.3B/2.7B : paragraphe « Arbitrary symbolic rules »
+- `results/stage_b_rule_probe_rwkv1.5B.log` : sondes César + concept, RWKV-7-1.5B
+- `results/stage_b_rule_probe_rwkv2.9B.log` : sonde César, RWKV-7-2.9B : paragraphe « A non-trivial induced rule transfers »
+- `results/stage_b_rule_transfer.log` : Table `tab:rule`, colonne 1.3B (voyelle/consonne, 35 graines)
+- `results/stage_b_rule_transfer_2.7B.log` : Table `tab:rule`, colonne 2.7B (52 graines)
+- `results/stage_b_rule_transfer_rwkv1.5B.log` : réplication RWKV-7-1.5B (52 graines) : paragraphe « Replication on a second architecture »
+- `results/stage_b_style_transfer.log` : style de sortie constant (40 graines) : paragraphe « A constant output style also transfers »
+- `results/stage_b_caesar_transfer_rwkv2.9B.log` : transfert César k=2 (50 graines) : paragraphe « A non-trivial induced rule transfers »
+- `results/stage_b_xcheckpoint_rwkv.log` : transfert cross-checkpoint g1→world (25 graines, 24 ancres) : paragraphe « Transfer across distinct checkpoints »
+
+**Scratch (non cités par le papier)**
+- `results/.diag_disjoint.out`, `results/.diag_keys.out` : sorties de développement, voir `REPRODUCE.md` §5 (« stale scratch »)
+
+**Scripts**
+- `scripts/diag_*.py` : scripts de diagnostic (un par log ci-dessus) ; la correspondance papier↔exploratoire est dans `REPRODUCE.md` §5
+- `src/engrammics_science.py` : le harnais (un moteur statistique, deux backends `toy`/`lm`)
+- `src/engrammics_proto.py` : le prototype NumPy (capacité, hétérogénéité, sensibilités)

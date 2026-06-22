@@ -1,0 +1,31 @@
+model: /home/jac/models/rwkv7-2.9B-g1  reps=3 seeds=50  RULE FAMILY: caesar:3, caesar:5, atbash, digit:3
+
+=== rule=caesar:3  (alphabet=26, chance~0.038, 50 seeds) ===
+  engram alone (induced+transferred) 0.205  [0.165, 0.245]
+  random engram                      0.000  [0.000, 0.000]
+  wrong-rule engram                  0.060  [0.040, 0.083]
+  clean - random       d=0.205 [0.165, 0.245] p=0.0000
+  clean - wrong-rule   d=0.145 [0.102, 0.188] p=0.0000
+
+=== rule=caesar:5  (alphabet=26, chance~0.038, 50 seeds) ===
+  engram alone (induced+transferred) 0.075  [0.052, 0.100]
+  random engram                      0.005  [0.000, 0.013]
+  wrong-rule engram                  0.022  [0.010, 0.035]
+  clean - random       d=0.070 [0.045, 0.095] p=0.0000
+  clean - wrong-rule   d=0.052 [0.028, 0.080] p=0.0000
+
+=== rule=atbash  (alphabet=26, chance~0.038, 50 seeds) ===
+  engram alone (induced+transferred) 0.172  [0.133, 0.215]
+  random engram                      0.005  [0.000, 0.013]
+  wrong-rule engram                  0.050  [0.028, 0.072]
+  clean - random       d=0.168 [0.125, 0.212] p=0.0000
+  clean - wrong-rule   d=0.122 [0.077, 0.168] p=0.0000
+
+=== rule=digit:3  (alphabet=10, chance~0.100, 50 seeds) ===
+  engram alone (induced+transferred) 0.107  [0.075, 0.142]
+  random engram                      0.000  [0.000, 0.000]
+  wrong-rule engram                  0.138  [0.117, 0.158]
+  clean - random       d=0.107 [0.075, 0.142] p=0.0000
+  clean - wrong-rule   d=-0.030 [-0.068, 0.007] p=0.9488
+
+RULE_FAMILY_DONE
