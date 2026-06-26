@@ -120,7 +120,7 @@ RW29=~/models/rwkv7-2.9B-g1
 | Paper element | Command | Output |
 |---|---|---|
 | Caesar induction probe, DeltaNet 1.3B + 2.7B | `python scripts/diag_skill.py $M13` ; `python scripts/diag_skill.py $M27` | `results/stage_b_rule_probe.log` |
-| Concept (vowel/consonant, half) induction probe | `python scripts/diag_concept.py $M13` ; `python scripts/diag_concept.py $M27` | (printed; folded into the probe logs) |
+| Concept (vowel/consonant, half) induction probe | `python scripts/diag_concept.py $M13` ; `python scripts/diag_concept.py $M27` | `results/stage_b_concept_probe.log` |
 | Table `tab:rule`, 1.3B column (35 valid of 40 seeds) | `SEEDS=40 python scripts/diag_rule_transfer.py $M13` | `results/stage_b_rule_transfer.log` |
 | Table `tab:rule`, 2.7B column (52 valid of 60 seeds) | `SEEDS=60 python scripts/diag_rule_transfer.py $M27` | `results/stage_b_rule_transfer_2.7B.log` |
 | Constant output style transfer (40 seeds) | `SEEDS=40 python scripts/diag_style_transfer.py $M13` | `results/stage_b_style_transfer.log` |

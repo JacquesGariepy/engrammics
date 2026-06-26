@@ -1,0 +1,22 @@
+model: /home/jac/models/delta_net-1.3B-100B   (chance=0.5 for 2-class; held vs wrong-label)
+# vowel/consonant
+  sep='=' reps=1 :  held=0.74  wrong-label=0.27
+  sep='=' reps=3 :  held=0.79  wrong-label=0.21
+  sep='>' reps=1 :  held=0.73  wrong-label=0.22
+  sep='>' reps=3 :  held=0.76  wrong-label=0.26
+# first/second half
+  sep='=' reps=1 :  held=0.47  wrong-label=0.53
+  sep='=' reps=3 :  held=0.48  wrong-label=0.61
+  sep='>' reps=1 :  held=0.45  wrong-label=0.54
+  sep='>' reps=3 :  held=0.53  wrong-label=0.49
+model: /home/jac/models/delta_net-2.7B-100B   (chance=0.5 for 2-class; held vs wrong-label)
+# vowel/consonant
+  sep='=' reps=1 :  held=0.74  wrong-label=0.24
+  sep='=' reps=3 :  held=0.79  wrong-label=0.23
+  sep='>' reps=1 :  held=0.73  wrong-label=0.27
+  sep='>' reps=3 :  held=0.79  wrong-label=0.21
+# first/second half
+  sep='=' reps=1 :  held=0.47  wrong-label=0.57
+  sep='=' reps=3 :  held=0.49  wrong-label=0.52
+  sep='>' reps=1 :  held=0.57  wrong-label=0.53
+  sep='>' reps=3 :  held=0.53  wrong-label=0.51

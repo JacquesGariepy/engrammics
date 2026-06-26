@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: "Distributed Engrammics: Gradient-Free Transfer of a Persistent Fast-Weight Associative State Between Agents"
+message: "If you use this work, please cite it using the metadata below, including the Zenodo DOI."
+type: software
+authors:
+  - family-names: "Gariépy"
+    given-names: "Jacques"
+    orcid: "https://orcid.org/0009-0001-5986-2356"
+abstract: >-
+  A study of the fast-weight matrix of linear-attention models (DeltaNet,
+  RWKV-7) as a persistent, transferable "engram" that can be extracted from one
+  agent and added, without any gradient step, to another agent's recurrent
+  state, together with an algebra for targeted forgetting and subspace-gated
+  governance. The release includes a single reproducible harness with two
+  backends (a controlled associative-memory model and real language-model
+  checkpoints) judged by identical pre-specified, falsifiable criteria.
+keywords:
+  - fast weights
+  - fast weight programmers
+  - linear attention
+  - DeltaNet
+  - RWKV-7
+  - in-context learning
+  - skill transfer
+  - model merging
+  - machine unlearning
+  - mechanistic interpretability
+license: MIT
+version: "1.0.0"
+date-released: "2026-06-26"
+repository-code: "https://github.com/JacquesGariepy/engrammics"
+url: "https://github.com/JacquesGariepy/engrammics"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.20931468"
+    description: "Zenodo archive of v1.0.0"
