@@ -6,7 +6,7 @@ In linear-attention models (DeltaNet, RWKV-7) a skill learned in context lives i
 the recurrent fast-weight state as a low-rank, additive object. This repo shows
 you can *extract* that object from one agent, *add* it to another's state with no
 gradient step, and have the second agent perform the skill, plus an algebra for
-forgetting and subspace-gated governance. Full write-up: [`doc/engrammics_arxiv.pdf`](doc/engrammics_arxiv.pdf).
+forgetting and subspace-gated governance. Full write-up: [`doc/engrammics_arxiv.pdf`](doc/2026-06-26-v1.0.0).
 
 **Scope and honest limits.** This works only for architectures with a single
 additive recurrent state (linear attention), **not** standard softmax
