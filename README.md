@@ -1,5 +1,8 @@
 # Distributed Engrammics
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20931468.svg)](https://doi.org/10.5281/zenodo.20931468)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Gradient-free transfer of a persistent fast-weight associative state between agents.**
 
 In linear-attention models (DeltaNet, RWKV-7) a skill learned in context lives in
@@ -12,7 +15,7 @@ forgetting and subspace-gated governance. Full write-up: [`doc/2026-06-26-v1.0.0
 additive recurrent state (linear attention), **not** standard softmax
 transformers, i.e. not most models deployed today. And we report what fails as
 plainly as what works: on the real DeltaNet, gradient-free transfer, the rank
-dose-response, and captured-key governance hold, but **two of the four operations
+dose-response, and captured-key governance hold, but **two idealized properties
 fail naively**: interference-free superposition (H2) damages the host skill, and
 "surgical" forgetting (H3) erases the host along with the target. Both are
 *recoverable*, but only as **lossy, tunable trade-offs** with the same key
@@ -80,7 +83,7 @@ model (this is what the scorecard reports, not just the wins):
 ```
 
 H2 and H3 fail here because the two skills share key directions in a dense model;
-they become host-safe trade-offs with the projector fixes (paper §6.6). One-time
+they become host-safe trade-offs with the projector fixes (see the paper's LM-backend section). One-time
 setup (Python 3.12, venv, `pip install -r requirements.txt`, model
 download) and a result-by-result command map for **every** table and figure are in
 [`REPRODUCE.md`](REPRODUCE.md). The raw logs and per-seed CSVs behind every number
@@ -128,3 +131,15 @@ Needs both RWKV-7-1.5B checkpoints (`fla-hub/rwkv7-1.5B-g1` and `-world`); see
 - Language-model results: an NVIDIA GPU (we used a single RTX 3090, 24 GB) and the
   pinned stack in `requirements.txt` (torch 2.12.1, flash-linear-attention 0.5.1,
   transformers 5.12.1). See `REPRODUCE.md`.
+
+## Citation
+
+If you use this work, please cite the archived release:
+
+> Gariépy, J. (2026). *Distributed Engrammics: Gradient-Free Transfer of a Persistent Fast-Weight Associative State Between Agents* (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.20931468
+
+A machine-readable [`CITATION.cff`](CITATION.cff) is included.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
