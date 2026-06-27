@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Decouvre un checkpoint DeltaNet PUR sur fla-hub et imprime son identifiant.
-Aucun id n'est code en dur : on interroge le hub a l'execution. Override possible
-via la variable d'environnement MODEL_ID."""
+"""Discover a PURE DeltaNet checkpoint on fla-hub and print its identifier.
+No id is hard-coded: the hub is queried at runtime. Override possible via the
+MODEL_ID environment variable."""
 import sys
 
 try:
     from huggingface_hub import list_models
 except Exception as e:  # pragma: no cover
-    sys.stderr.write(f"[pick_model] huggingface_hub manquant: {e}\n")
+    sys.stderr.write(f"[pick_model] huggingface_hub missing: {e}\n")
     print("")
     sys.exit(0)
 
@@ -15,16 +15,16 @@ cands = []
 try:
     for m in list_models(author="fla-hub"):
         n = m.id.lower()
-        # DeltaNet pur : on ecarte les variantes 'gated' et hybrides 'attn'
+        # pure DeltaNet: drop the 'gated' variants and 'attn' hybrids
         if "delta" in n and "gated" not in n and "attn" not in n:
             cands.append(m.id)
 except Exception as e:  # pragma: no cover
-    sys.stderr.write(f"[pick_model] echec list_models: {e}\n")
+    sys.stderr.write(f"[pick_model] list_models failed: {e}\n")
 
 
 def score(i):
     s = i.lower()
-    pref = 0 if ("1.3b" in s or "-1b" in s or "1b" in s) else 1  # vise ~1B
+    pref = 0 if ("1.3b" in s or "-1b" in s or "1b" in s) else 1  # aim for ~1B
     return (pref, len(s))
 
 

@@ -1,25 +1,24 @@
 """
-Engrammique distribuee -- prototype minimal et auto-suffisant (NumPy).
+Distributed engrammics -- minimal, self-contained prototype (NumPy).
 
-Objet central : une matrice de poids rapides F (l'engramme) ecrite par la
-delta rule, lue associativement, transferee en pair-a-pair sous forme d'un
-delta de rang faible, et oubliee par projection.
+Central object: a fast-weight matrix F (the engram) written by the delta rule,
+read associatively, transferred peer-to-peer as a low-rank delta, and forgotten
+by projection.
 
-Demontre quatre revendications falsifiables :
-  C1  Persistance      : F survit a une sauvegarde / rechargement.
-  C2  Transfert sans gradient : une competence apprise par A se transmet a B
-                          via un delta de rang r, integre sans aucun pas de
-                          gradient, avec une fidelite qui croit avec r.
-  C3  Oubli cible      : retirer une competence par projection ne degrade pas
-                          les autres (droit a l'oubli = algebre lineaire).
-  C4  Gouvernance      : le receveur n'admet un engramme que dans le
-                          sous-espace consenti ; le reste est annule.
+Demonstrates four falsifiable claims:
+  C1  Persistence       : F survives a save / reload.
+  C2  Gradient-free transfer : a skill learned by A transfers to B via a rank-r
+                          delta, integrated without any gradient step, with a
+                          fidelity that grows with r.
+  C3  Targeted forgetting : removing a skill by projection does not degrade the
+                          others (right to be forgotten = linear algebra).
+  C4  Governance        : the receiver admits an engram only within the
+                          consented subspace; the rest is cancelled.
 
-Le "conatus" (controleur lent) est ici une projection lineaire entrainee a
-inscrire des engrammes non interferents (cles ~orthonormales). Aucun GPU requis.
-Pour passer a l'echelle d'un vrai LM, on remplace cette memoire jouet par l'etat
-recurrent d'un DeltaNet / Gated DeltaNet (flash-linear-attention) : meme F,
-meme delta rule.
+The "conatus" (slow controller) is here a linear projection trained to inscribe
+non-interfering engrams (~orthonormal keys). No GPU required.
+To scale to a real LM, this toy memory is replaced by the recurrent state of a
+DeltaNet / Gated DeltaNet (flash-linear-attention): same F, same delta rule.
 """
 
 import numpy as np
@@ -30,61 +29,61 @@ rng = np.random.default_rng(SEED)
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-D_IN = 48     # dimension d'un indice (cue) / d'une reponse brute
-D_K = 64      # dimension des cles (taille de l'espace d'adressage de F)
-D_V = D_IN    # valeurs = reponses directement (encodeur de valeur = identite)
-N_PAIRS = 8   # associations par competence pour les demonstrations C1-C4
-N_MIN, N_MAX = 8, 32   # plage de capacite vue a l'entrainement du conatus
-BETA = 1.0    # taux d'ecriture de la delta rule (correction exacte)
+D_IN = 48     # dimension of a cue / of a raw response
+D_K = 64      # dimension of the keys (size of F's addressing space)
+D_V = D_IN    # values = responses directly (value encoder = identity)
+N_PAIRS = 8   # associations per skill for the C1-C4 demonstrations
+N_MIN, N_MAX = 8, 32   # capacity range seen during conatus training
+BETA = 1.0    # delta-rule write rate (exact correction)
 
 
 # ----------------------------------------------------------------------------
-# Utilitaires
+# Utilities
 # ----------------------------------------------------------------------------
 def l2norm(X, axis=-1, eps=1e-9):
     return X / (np.linalg.norm(X, axis=axis, keepdims=True) + eps)
 
 
 def sample_skill(rng, n=N_PAIRS, d_in=D_IN, d_v=D_V):
-    """Une 'competence' = un dictionnaire associatif cue -> reponse."""
+    """A 'skill' = an associative dictionary cue -> response."""
     cues = rng.standard_normal((n, d_in))
     responses = l2norm(rng.standard_normal((n, d_v)))
     return cues, responses
 
 
 # ----------------------------------------------------------------------------
-# Conatus (controleur lent) : cue -> cle. Valeur = reponse (identite).
+# Conatus (slow controller): cue -> key. Value = response (identity).
 # ----------------------------------------------------------------------------
 def init_conatus(d_k=D_K, d_in=D_IN, rng=rng):
     return rng.standard_normal((d_k, d_in)) / np.sqrt(d_in)
 
 
 def encode_keys(Wk, cues):
-    """cues (N,d_in) -> cles normalisees (N,d_k)."""
+    """cues (N,d_in) -> normalized keys (N,d_k)."""
     return l2norm(cues @ Wk.T)
 
 
 # ----------------------------------------------------------------------------
-# Memoire a poids rapides F  (les 'lire' / 'inscrire')
+# Fast-weight memory F  (the 'read' / 'inscribe')
 # ----------------------------------------------------------------------------
 def delta_write(S, K, V, beta=BETA):
-    """Inscrire : ecriture sequentielle par delta rule (correction d'erreur)."""
+    """Inscribe: sequential write by the delta rule (error correction)."""
     S = S.copy()
     for i in range(K.shape[0]):
-        pred = K[i] @ S                      # prediction courante (d_v,)
+        pred = K[i] @ S                      # current prediction (d_v,)
         S = S + beta * np.outer(K[i], V[i] - pred)
     return S
 
 
 def read(S, Q):
-    """Lire : lecture associative o = q . F."""
+    """Read: associative read o = q . F."""
     return Q @ S
 
 
 def recall_metrics(O, V_pool):
-    """Top-1 (cosinus, plus proche) ET signal moyen (cosinus a la vraie reponse).
-    Le signal est continu : il s'effondre proprement quand la trace est effacee,
-    la ou le top-1 sur du bruit reste un artefact d'argmax."""
+    """Top-1 (cosine, nearest) AND mean signal (cosine to the true response).
+    The signal is continuous: it collapses cleanly when the trace is erased,
+    whereas top-1 on noise remains an argmax artifact."""
     On, Vn = l2norm(O), l2norm(V_pool)
     sims = On @ Vn.T
     acc = float((sims.argmax(axis=1) == np.arange(O.shape[0])).mean())
@@ -93,53 +92,53 @@ def recall_metrics(O, V_pool):
 
 
 def build_engram(Wk, cues, responses, beta=BETA):
-    """Construit l'engramme F d'une competence a partir d'un etat nul."""
+    """Builds the engram F of a skill from a zero state."""
     S0 = np.zeros((D_K, D_V))
     K = encode_keys(Wk, cues)
     return delta_write(S0, K, responses, beta), K
 
 
 # ----------------------------------------------------------------------------
-# Les operations inedites : transferer / oublier / gouverner
+# The novel operations: transfer / forget / govern
 # ----------------------------------------------------------------------------
 def low_rank(S, r):
-    """Transferer : tronque l'engramme au rang r (delta compact)."""
+    """Transfer: truncate the engram to rank r (compact delta)."""
     U, s, Vt = np.linalg.svd(S, full_matrices=False)
     return (U[:, :r] * s[:r]) @ Vt[:r]
 
 
 def forget_projection(S, K_x):
-    """Oublier : retire du F la composante lue par les cles de la competence X."""
-    P = K_x.T @ np.linalg.pinv(K_x @ K_x.T) @ K_x   # projecteur sur span(cles X)
+    """Forget: remove from F the component read by skill X's keys."""
+    P = K_x.T @ np.linalg.pinv(K_x @ K_x.T) @ K_x   # projector onto span(keys X)
     return S - P @ S
 
 
 def orthobasis(K):
-    """Base orthonormale (d_k x r) de l'espace engendre par les cles (lignes de K)."""
+    """Orthonormal basis (d_k x r) of the space spanned by the keys (rows of K)."""
     _, s, Vt = np.linalg.svd(K, full_matrices=False)
     r = int((s > 1e-8).sum())
     return Vt[:r].T
 
 
 def govern_projection(dS, U):
-    """Gouvernance : n'admet l'engramme que dans le sous-espace consenti U."""
+    """Governance: admit the engram only within the consented subspace U."""
     P = U @ U.T
     return P @ dS
 
 
 # ----------------------------------------------------------------------------
-# Entrainement du conatus : inscrire des engrammes non interferents
-#   perte = || K K^T - I ||_F^2  (cles orthonormales -> faible diaphonie)
+# Conatus training: inscribe non-interfering engrams
+#   loss = || K K^T - I ||_F^2  (orthonormal keys -> low crosstalk)
 # ----------------------------------------------------------------------------
 def ortho_loss_and_grad(Wk, cues):
     Z = cues @ Wk.T                          # (N, d_k)
     norm = np.linalg.norm(Z, axis=1, keepdims=True) + 1e-9
-    K = Z / norm                             # cles normalisees
+    K = Z / norm                             # normalized keys
     N = K.shape[0]
     G = K @ K.T - np.eye(N)
     loss = float((G * G).sum())
     dK = 4.0 * G @ K                         # dL/dK
-    # backprop a travers la normalisation L2 (par ligne)
+    # backprop through the (row-wise) L2 normalization
     dot = np.sum(dK * K, axis=1, keepdims=True)
     dZ = (dK - K * dot) / norm
     dWk = dZ.T @ cues                        # dL/dWk
@@ -147,8 +146,8 @@ def ortho_loss_and_grad(Wk, cues):
 
 
 def train_conatus(Wk, steps=800, batch=16, lr=0.08, rng=rng):
-    """Le conatus apprend a inscrire des engrammes non interferents, sur une
-    plage de tailles N (capacite variable)."""
+    """The conatus learns to inscribe non-interfering engrams, over a range of
+    sizes N (variable capacity)."""
     for _ in range(steps):
         g = np.zeros_like(Wk)
         for _ in range(batch):
@@ -171,7 +170,7 @@ def mean_recall(Wk, n_pairs=N_PAIRS, n_skills=200, rng=rng):
 
 
 # ----------------------------------------------------------------------------
-# Verification du gradient (garde-fou contre une derivation erronee)
+# Gradient check (guard against a wrong derivation)
 # ----------------------------------------------------------------------------
 def gradient_check():
     Wk = init_conatus(d_k=8, d_in=6, rng=np.random.default_rng(1))
@@ -191,7 +190,7 @@ def gradient_check():
 
 
 # ============================================================================
-# Outils statistiques et d'alignement
+# Statistics and alignment utilities
 # ============================================================================
 def agg(vals):
     a = np.array(vals, dtype=float)
@@ -203,9 +202,9 @@ def pm(m, s, pct=True):
 
 
 def align_keyspace(Wk_src, Wk_dst, anchors):
-    """Apprend W tel que (cles de dst) @ W approche (cles de src), a partir d'un
-    jeu d'ancres partagees. Permet a un agent dst d'adresser l'engramme d'un
-    agent src malgre un espace de cles different (Wk_src != Wk_dst)."""
+    """Learns W such that (dst keys) @ W approximates (src keys), from a set of
+    shared anchors. Lets a dst agent address a src agent's engram despite a
+    different key space (Wk_src != Wk_dst)."""
     K_src = encode_keys(Wk_src, anchors)
     K_dst = encode_keys(Wk_dst, anchors)
     W, *_ = np.linalg.lstsq(K_dst, K_src, rcond=None)   # K_dst @ W ~= K_src
@@ -213,7 +212,7 @@ def align_keyspace(Wk_src, Wk_dst, anchors):
 
 
 # ============================================================================
-# Une experience = une graine. On agrege ensuite moyenne +/- ecart-type.
+# One experiment = one seed. We then aggregate mean +/- std.
 # ============================================================================
 def run_core_trial(Wk, seed):
     rt = np.random.default_rng(seed)
@@ -238,18 +237,18 @@ def run_core_trial(Wk, seed):
 
 
 def run_hetero_trial(seed, n_anchor=128):
-    """A et B ont des espaces de cles differents. On compare transfert naif vs
-    transfert avec alignement appris sur des ancres partagees."""
+    """A and B have different key spaces. We compare naive transfer vs transfer
+    with an alignment learned on shared anchors."""
     rt = np.random.default_rng(seed)
     Wk_A = init_conatus(rng=rt)
     Wk_B = init_conatus(rng=rt)
     cues_X, resp_X = sample_skill(rt)
     S_A, K_XA = build_engram(Wk_A, cues_X, resp_X)
     K_XB = encode_keys(Wk_B, cues_X)
-    homo = recall_metrics(read(S_A, K_XA), resp_X)[0]            # meme Wk : borne sup
-    naive = recall_metrics(read(S_A, K_XB), resp_X)[0]           # Wk different, sans alignement
+    homo = recall_metrics(read(S_A, K_XA), resp_X)[0]            # same Wk: upper bound
+    naive = recall_metrics(read(S_A, K_XB), resp_X)[0]          # different Wk, no alignment
     W = align_keyspace(Wk_A, Wk_B, rt.standard_normal((n_anchor, D_IN)))
-    aligned = recall_metrics(read(S_A, K_XB @ W), resp_X)[0]     # avec alignement
+    aligned = recall_metrics(read(S_A, K_XB @ W), resp_X)[0]     # with alignment
     return homo, naive, aligned
 
 
@@ -270,18 +269,18 @@ def alpha_sweep(Wk, seeds, r=4):
 
 
 def overlap_sweep(Wk, seeds):
-    """Recouvrement controle des sous-espaces de cles entre X et Y, puis oubli de
-    X : montre la degradation gracieuse de la retention de Y."""
+    """Controlled overlap of the key subspaces between X and Y, then forgetting
+    of X: shows the graceful degradation of Y's retention."""
     overlaps = [0.0, 0.25, 0.5, 0.75, 1.0]
     out = {ov: [] for ov in overlaps}
     for sd in seeds:
         rt = np.random.default_rng(sd)
         cues_X, resp_X = sample_skill(rt)
         S_A, K_X = build_engram(Wk, cues_X, resp_X)
-        P = cues_X.T @ np.linalg.pinv(cues_X @ cues_X.T) @ cues_X   # proj sur span(cues X)
+        P = cues_X.T @ np.linalg.pinv(cues_X @ cues_X.T) @ cues_X   # proj onto span(cues X)
         for ov in overlaps:
             fresh = rt.standard_normal((N_PAIRS, D_IN))
-            cues_Y = (1 - ov) * fresh + ov * (fresh @ P)           # Y plus ou moins dans X
+            cues_Y = (1 - ov) * fresh + ov * (fresh @ P)           # Y more or less inside X
             resp_Y = l2norm(rt.standard_normal((N_PAIRS, D_V)))
             S_Y, K_Y = build_engram(Wk, cues_Y, resp_Y)
             S_f = forget_projection(S_A + S_Y, K_X)
@@ -290,8 +289,8 @@ def overlap_sweep(Wk, seeds):
 
 
 def noise_sweep(Wk, seeds, r=8):
-    """Corruption gaussienne de l'engramme transmis (canal bruite / empoisonnement
-    leger) : sensibilite du rappel au bruit."""
+    """Gaussian corruption of the transmitted engram (noisy channel / mild
+    poisoning): sensitivity of recall to noise."""
     sigmas = [0.0, 0.05, 0.1, 0.2, 0.4]
     out = {s: [] for s in sigmas}
     for sd in seeds:
@@ -306,85 +305,85 @@ def noise_sweep(Wk, seeds, r=8):
 
 
 # ============================================================================
-# Pilote
+# Driver
 # ============================================================================
 def main():
     N_SEEDS = 20
     seeds = list(range(N_SEEDS))
     print("=" * 70)
-    print(f"ENGRAMMIQUE DISTRIBUEE -- prototype  ({N_SEEDS} graines, moyenne +/- ecart-type)")
+    print(f"DISTRIBUTED ENGRAMMICS -- prototype  ({N_SEEDS} seeds, mean +/- std)")
     print("=" * 70)
 
     rel = gradient_check()
-    print(f"\n[verif gradient] erreur relative vs differences finies : {rel:.2e}"
-          f"  ({'OK' if rel < 1e-5 else 'A REVOIR'})")
+    print(f"\n[gradient check] relative error vs finite differences: {rel:.2e}"
+          f"  ({'OK' if rel < 1e-5 else 'CHECK'})")
 
-    # --- Conatus : capacite -------------------------------------------------
+    # --- Conatus: capacity --------------------------------------------------
     Wk0 = init_conatus()
     Wk = train_conatus(Wk0.copy())
-    print("\n--- Conatus : apprendre a inscrire (rappel vs charge) -----------")
-    print(f"{'N assoc.':>9} | {'init':>16} | {'entraine':>16}")
+    print("\n--- Conatus: learning to inscribe (recall vs load) --------------")
+    print(f"{'N assoc.':>9} | {'init':>16} | {'trained':>16}")
     for n in [8, 16, 24, 32]:
         a0, _ = mean_recall(Wk0, n_pairs=n, n_skills=120, rng=np.random.default_rng(100 + n))
         a1, _ = mean_recall(Wk, n_pairs=n, n_skills=120, rng=np.random.default_rng(100 + n))
         print(f"{n:>9} | {a0*100:13.1f}%  | {a1*100:13.1f}%")
 
-    # --- C1 : persistance (deterministe) ------------------------------------
+    # --- C1: persistence (deterministic) ------------------------------------
     cx, rx = sample_skill(np.random.default_rng(0))
     S0, KX0 = build_engram(Wk, cx, rx)
     np.save("/tmp/F_state.npy", S0); S1 = np.load("/tmp/F_state.npy")
-    print("\n--- C1  Persistance ---------------------------------------------")
-    print(f"rappel avant/apres save-load : {recall_metrics(read(S0,KX0),rx)[0]*100:.0f}%"
+    print("\n--- C1  Persistence ---------------------------------------------")
+    print(f"recall before/after save-load: {recall_metrics(read(S0,KX0),rx)[0]*100:.0f}%"
           f" / {recall_metrics(read(S1,KX0),rx)[0]*100:.0f}%"
-          f"   (ecart max sur F : {np.abs(S0-S1).max():.1e})")
+          f"   (max diff on F: {np.abs(S0-S1).max():.1e})")
 
-    # --- Coeur multi-graines : C2, C3, C4 -----------------------------------
+    # --- Multi-seed core: C2, C3, C4 ----------------------------------------
     trials = [run_core_trial(Wk, s) for s in seeds]
     st = {k: agg([t[k] for t in trials]) for k in trials[0]}
 
-    print("\n--- C2  Transfert sans gradient (regime controle) ---------------")
-    print("A possede X ; B possede deja Y ; B integre un delta de rang r.")
-    print(f"{'rang r':>7} | {'cout (floats)':>13} | {'rappel X chez B':>18}")
+    print("\n--- C2  Gradient-free transfer (controlled regime) --------------")
+    print("A holds X; B already holds Y; B integrates a rank-r delta.")
+    print(f"{'rank r':>7} | {'cost (floats)':>13} | {'recall X in B':>18}")
     for r in (1, 2, 4, 8):
         print(f"{r:>7} | {r*(D_K+D_V):>13} | {pm(*st[f'tx{r}']):>18}")
-    print(f"Y preserve (au rang 4) : {pm(*st['ty4'])} %")
-    print(f"Reference replay brut : {N_PAIRS*(D_IN+D_V)} floats. "
-          f"Gain seulement si la competence est compressible (ici rang <= 4).")
+    print(f"Y preserved (at rank 4): {pm(*st['ty4'])} %")
+    print(f"Raw replay reference: {N_PAIRS*(D_IN+D_V)} floats. "
+          f"Gain only if the skill is compressible (here rank <= 4).")
 
-    print("\n--- C3  Oubli cible (substrat rapide) ---------------------------")
-    print(f"signal de X apres projection : {pm(*st['forget_sigX'], pct=False)} "
-          f"(s'effondre vers 0)")
-    print(f"retention de Y (sous-espaces ~disjoints) : {pm(*st['forget_retY'])} %")
+    print("\n--- C3  Targeted forgetting (fast substrate) --------------------")
+    print(f"signal of X after projection: {pm(*st['forget_sigX'], pct=False)} "
+          f"(collapses toward 0)")
+    print(f"retention of Y (~disjoint subspaces): {pm(*st['forget_retY'])} %")
 
-    print("\n--- C4  Gouvernance (consentement = sous-espace admis) ----------")
-    print(f"engramme dans le sous-espace admis : {pm(*st['gov_admit'])} %")
-    print(f"engramme hors du sous-espace admis : {pm(*st['gov_deny'])} %")
+    print("\n--- C4  Governance (consent = admitted subspace) ----------------")
+    print(f"engram inside the admitted subspace: {pm(*st['gov_admit'])} %")
+    print(f"engram outside the admitted subspace: {pm(*st['gov_deny'])} %")
 
-    # --- Hetero : agents a espaces de cles differents ------------------------
+    # --- Hetero: agents with different key spaces ----------------------------
     hs = [run_hetero_trial(s) for s in seeds]
     homo = agg([h[0] for h in hs]); naive = agg([h[1] for h in hs])
     aligned = agg([h[2] for h in hs])
-    print("\n--- Agents heterogenes  Wk_A != Wk_B ----------------------------")
-    print(f"meme espace de cles (borne sup)   : {pm(*homo)} %")
-    print(f"transfert naif (sans alignement)  : {pm(*naive)} %   <- le delta n'a pas de sens")
-    print(f"avec alignement appris (128 ancres): {pm(*aligned)} %")
+    print("\n--- Heterogeneous agents  Wk_A != Wk_B --------------------------")
+    print(f"same key space (upper bound)        : {pm(*homo)} %")
+    print(f"naive transfer (no alignment)       : {pm(*naive)} %   <- the delta is meaningless")
+    print(f"with learned alignment (128 anchors): {pm(*aligned)} %")
 
-    # --- Sensibilites -------------------------------------------------------
+    # --- Sensitivities ------------------------------------------------------
     alphas, asweep = alpha_sweep(Wk, seeds)
-    print("\n--- Sensibilite au facteur d'integration alpha (rang 4) ---------")
+    print("\n--- Sensitivity to the integration factor alpha (rank 4) -------")
     for a in alphas:
         mx, sx = agg(asweep[a][0]); my, sy = agg(asweep[a][1])
-        print(f"alpha={a:>4} : X chez B {pm(mx,sx)} %   |  Y preserve {pm(my,sy)} %")
+        print(f"alpha={a:>4} : X in B {pm(mx,sx)} %   |  Y preserved {pm(my,sy)} %")
 
     overlaps, osweep = overlap_sweep(Wk, seeds)
-    print("\n--- Oubli vs recouvrement des sous-espaces (retention de Y) ------")
+    print("\n--- Forgetting vs subspace overlap (retention of Y) -------------")
     for ov in overlaps:
-        print(f"recouvrement={ov:>4} : retention Y {pm(*agg(osweep[ov]))} %")
+        print(f"overlap={ov:>4} : retention Y {pm(*agg(osweep[ov]))} %")
 
     sigmas, nsweep = noise_sweep(Wk, seeds)
-    print("\n--- Robustesse au bruit sur l'engramme transmis (rang 8) --------")
+    print("\n--- Robustness to noise on the transmitted engram (rank 8) ------")
     for sg in sigmas:
-        print(f"sigma={sg:>4} : rappel X {pm(*agg(nsweep[sg]))} %")
+        print(f"sigma={sg:>4} : recall X {pm(*agg(nsweep[sg]))} %")
 
     print("\n" + "=" * 70)
 
